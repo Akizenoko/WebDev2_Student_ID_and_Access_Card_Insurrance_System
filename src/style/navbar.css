@@ -1,0 +1,78 @@
+
+.navbar{
+    padding: 20px 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: rgb(194, 47, 47);
+    border-bottom: 1px solid rgb(0, 0, 0);
+}
+
+.wmsulogo{
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: white;
+}
+
+.wmsulogo img{
+    height: 70px;
+    border-radius: 50%;
+}
+
+
+.selections{
+    color: aliceblue;
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    font-size: 20px;
+}
+
+.issuance{
+    display: flex;
+    gap: 10px;
+}
+
+.applyid{
+    border: 1px solid rgb(155, 3, 3);
+    color: rgb(0, 0, 0);
+    background-color: rgb(255, 255, 255);
+    transition: all ease-in-out 0.1s;
+}
+
+.applyid:hover{
+    background-color: rgb(255, 150, 150);
+}
+
+.reissueid{
+    border: 1px solid white;
+    color: white;
+    background-color: rgb(155, 3, 3);
+    transition: all ease-in-out 0.1s;
+}
+
+.reissueid:hover{
+    background-color: rgb(99, 0, 0);
+}
+
+.issuance button{
+    font-weight:bolder;
+    width: 200px;
+    padding: 13px;
+    border-radius: 20px;
+}
+
+.profile img{
+    border: 2px solid white;
+    height: 60px;
+    border-radius: 100%;
+}
+
+.profile{
+    color: aliceblue;
+    display: flex;
+    align-items: center;
+    align-content: center;
+    gap: 20px;
+}
