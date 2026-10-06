@@ -1,7 +1,8 @@
 import express from 'express';
 import { db, nextId } from '../data/store.js';
-
+import { requireRole } from '../middleware/auth.js';
 const router = express.Router();
+
 
 export const populateApplication = (app) => {
   const student = db.studentProfiles.find(sp => sp.id === app.student_id);
@@ -123,7 +124,8 @@ router.post('/', (req, res) => {
   res.status(201).json(populateApplication(newApp));
 });
 
-router.patch('/:id/status', (req, res) => {
+
+router.patch('/:id/status', requireRole('admin'), (req, res) => {
   const { status, changed_by } = req.body;
   const app = db.applications.find(a => a.id === Number(req.params.id));
   if (!app) return res.status(404).json({ message: 'Application not found' });
@@ -168,7 +170,7 @@ router.patch('/:id/status', (req, res) => {
   res.json(populateApplication(app));
 });
 
-router.patch('/:id/assign', (req, res) => {
+router.patch('/:id/assign', requireRole('admin'), (req, res) => {
   const { assigned_to } = req.body;
   const app = db.applications.find(a => a.id === Number(req.params.id));
   if (!app) return res.status(404).json({ message: 'Application not found' });

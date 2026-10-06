@@ -1,5 +1,5 @@
 
--- Do not add CREATE DATABASE here.
+
 
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,

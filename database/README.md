@@ -34,3 +34,12 @@ Run all commands from the project root.
 
 ### Using pgAdmin instead of psql
 Create a database named `student_id_db`, open the Query Tool on it, open `database/schema.sql`, and run it.
+
+run this before testing the login 
+"node server/db/seed.js"
+
+run server 
+"node server/index.js"
+
+then start the server for react 
+"npm run dev"

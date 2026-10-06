@@ -1,134 +1,104 @@
 import express from 'express';
-import { db, nextId } from '../data/store.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import pool from '../db/pool.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-export const getFullUserProfile = (userId) => {
-  const user = db.users.find(u => u.id === Number(userId));
-  if (!user) return null;
+const signToken = (user) =>
+    jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '2h' });
 
-  let profile = null;
-  if (user.role === 'student') {
-    profile = db.studentProfiles.find(sp => sp.user_id === user.id) || null;
-  } else if (user.role === 'admin') {
-    profile = db.adminProfiles.find(ap => ap.user_id === user.id) || null;
-  }
+async function getFullUser(userId) {
+    const { rows } = await pool.query(
+        'SELECT id, email, role, is_active FROM users WHERE id = $1', [userId]
+    );
+    const user = rows[0];
+    if (!user) return null;
 
-  return {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    isActive: user.isActive,
-    profile,
-  };
-};
+    const table = user.role === 'student' ? 'student_profiles' : 'admin_profiles';
+    const p = await pool.query(`SELECT * FROM ${table} WHERE user_id = $1`, [user.id]);
 
-router.post('/login', (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
-  }
+    return {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isActive: user.is_active,
+        profile: p.rows[0] || null,
+    };
+}
 
-  const cleanEmail = email.trim().toLowerCase();
+router.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
 
-  // If password is 'admin123', allow access to admin role using the same email/gmail
-  if (password === 'admin123') {
-    let user = db.users.find(u => u.email.toLowerCase() === cleanEmail);
-    if (!user) {
-      const newUserId = nextId();
-      user = {
-        id: newUserId,
-        email: email.trim(),
-        password: 'admin123',
-        role: 'admin',
-        isActive: true,
-      };
-      db.users.push(user);
+        const { rows } = await pool.query(
+            'SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]
+        );
+        const user = rows[0];
+
+        //messages for wrong info typed by user 
+        const valid = user && await bcrypt.compare(password, user.password_hash);
+        if (!valid) return res.status(401).json({ message: 'Invalid email or password' });
+        if (!user.is_active) return res.status(403).json({ message: 'Account is deactivated' });
+
+        const full = await getFullUser(user.id);
+        res.json({ ...full, token: signToken(user) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+router.post('/register', async (req, res) => {
+    const { email, password, student_number, first_name, last_name, program, year_level } = req.body;
+
+    if (!email || !password || !student_number || !first_name || !last_name) {
+        return res.status(400).json({ message: 'All required fields must be provided' });
+    }
+    if (password.length < 8) {
+        return res.status(400).json({ message: 'Password must be at least 8 characters' });
     }
 
-    let adminProfile = db.adminProfiles.find(ap => ap.user_id === user.id);
-    if (!adminProfile) {
-      adminProfile = {
-        id: nextId(),
-        user_id: user.id,
-        employee_no: `EMP-${user.id.toString().padStart(4, '0')}`,
-        office: 'Office of the University Registrar',
-      };
-      db.adminProfiles.push(adminProfile);
+    const client = await pool.connect();
+    try {
+        const hash = await bcrypt.hash(password, 10);
+        await client.query('BEGIN');
+            
+            //roles are hardcoded for the student 
+        const u = await client.query(
+            `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'student') RETURNING id, role`,
+            [email.trim().toLowerCase(), hash]
+        );
+        await client.query(
+            `INSERT INTO student_profiles (user_id, student_number, first_name, last_name, program, year_level)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+            [u.rows[0].id, student_number, first_name, last_name,
+            program || 'Undecided', year_level || '1st Year']
+        );
+        await client.query('COMMIT');
+
+        const full = await getFullUser(u.rows[0].id);
+        res.status(201).json({ ...full, token: signToken(u.rows[0]) });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        if (err.code === '23505') {     //this is unique violations if the user exists then it will like basta di pwede ganun logic na yun
+            return res.status(409).json({ message: 'Email or student number is already registered' });
+        }
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    } finally {
+        client.release();
     }
-
-    return res.json({
-      id: user.id,
-      email: user.email,
-      role: 'admin',
-      isActive: true,
-      profile: adminProfile,
-    });
-  }
-
-  const user = db.users.find(u => u.email.toLowerCase() === cleanEmail && u.password === password);
-  if (!user) {
-    return res.status(401).json({ message: 'Invalid email or password' });
-  }
-  if (!user.isActive) {
-    return res.status(403).json({ message: 'Account is deactivated' });
-  }
-
-  const fullUser = getFullUserProfile(user.id);
-  res.json(fullUser);
 });
 
-router.post('/register', (req, res) => {
-  const { email, password, student_number, first_name, last_name, program, year_level } = req.body;
-
-  if (!email || !password || !student_number || !first_name || !last_name) {
-    return res.status(400).json({ message: 'All required fields must be provided' });
-  }
-
-  if (db.users.some(u => u.email === email)) {
-    return res.status(409).json({ message: 'Email is already registered' });
-  }
-
-  const newUserId = nextId();
-  const newUser = {
-    id: newUserId,
-    email,
-    password,
-    role: 'student',
-    isActive: true,
-  };
-  db.users.push(newUser);
-
-  const newProfileId = nextId();
-  const newProfile = {
-    id: newProfileId,
-    user_id: newUserId,
-    student_number,
-    first_name,
-    last_name,
-    program: program || 'Undecided',
-    year_level: year_level || '1st Year',
-  };
-  db.studentProfiles.push(newProfile);
-
-  res.status(201).json({
-    id: newUser.id,
-    email: newUser.email,
-    role: newUser.role,
-    isActive: newUser.isActive,
-    profile: newProfile,
-  });
-});
-
-router.get('/users', (req, res) => {
-  const list = db.users.map(u => getFullUserProfile(u.id));
-  res.json(list);
-});
-
-router.get('/me/:id', (req, res) => {
-  const user = getFullUserProfile(req.params.id);
-  if (!user) return res.status(404).json({ message: 'User not found' });
-  res.json(user);
+router.get('/me', requireAuth, async (req, res) => {
+    const user = await getFullUser(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user);
 });
 
 export default router;
