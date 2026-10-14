@@ -1,56 +1,30 @@
 
 const API_BASE = '/api';
 
+
+const getToken = () => {
+  try { return JSON.parse(localStorage.getItem('wmsu_auth_user'))?.token; }
+  catch { return null; }
+};
+
+const authHeaders = (extra = {}) => {
+  const token = getToken();
+  return { ...extra, ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+};
+
+
 export const api = {
 
   async login(email, password) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Login failed' }));
-        throw new Error(err.message || 'Login failed');
-      }
-      return await res.json();
-    } catch (err) {
-      if (err.message && !err.message.includes('fetch') && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
-        throw err;
-      }
-      // Offline fallback
-      if (password === 'admin123') {
-        return {
-          id: 2,
-          email: email.trim(),
-          role: 'admin',
-          isActive: true,
-          profile: {
-            id: 1,
-            user_id: 2,
-            employee_no: 'EMP-2023-042',
-            office: 'Office of the University Registrar'
-          }
-        };
-      }
-      return {
-        id: 1,
-        email: email.trim(),
-        role: 'student',
-        isActive: true,
-        profile: {
-          id: 1,
-          user_id: 1,
-          student_number: '2025-01190',
-          first_name: 'Student',
-          last_name: 'User',
-          program: 'BS Computer Science',
-          year_level: '3rd Year'
-        }
-      };
-    }
-  },
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || 'Login failed');
+  return data;   // includes token
+},
 
   async register(data) {
     const res = await fetch(`${API_BASE}/auth/register`, {
@@ -77,10 +51,12 @@ export const api = {
 
 
   async getApplications(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/applications${query ? `?${query}` : ''}`);
-    return res.json();
-  },
+  const query = new URLSearchParams(params).toString();
+  const res = await fetch(`${API_BASE}/applications${query ? `?${query}` : ''}`, {
+    headers: authHeaders(),
+  });
+  return res.json();
+},
 
   async getApplication(id) {
     const res = await fetch(`${API_BASE}/applications/${id}`);
@@ -89,11 +65,11 @@ export const api = {
   },
 
   async createApplication(data) {
-    const res = await fetch(`${API_BASE}/applications`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
+  const res = await fetch(`${API_BASE}/applications`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(data),
+  });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: 'Failed to create application' }));
       throw new Error(err.message || 'Failed to submit application');
