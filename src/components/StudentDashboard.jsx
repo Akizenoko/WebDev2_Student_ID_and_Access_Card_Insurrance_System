@@ -16,10 +16,12 @@ function StudentDashboard({ currentUser, onOpenApply, onOpenReissue, onSelectApp
         api.getApplications({ student_id: studentId }),
         api.getCards({ student_id: studentId }),
       ]);
-      setApplications(appsData);
-      setCards(cardsData);
+      setApplications(Array.isArray(appsData) ? appsData : []);
+      setCards(Array.isArray(cardsData) ? cardsData : []);
     } catch (err) {
       console.error('Failed to load student data', err);
+      setApplications([]);
+      setCards([]);
     } finally {
       setLoading(false);
     }
@@ -29,7 +31,9 @@ function StudentDashboard({ currentUser, onOpenApply, onOpenReissue, onSelectApp
     loadData();
   }, [currentUser]);
 
-  const activeCard = cards.find(c => c.status === 'active') || cards[0];
+  const activeCard = Array.isArray(cards)
+    ? (cards.find(c => c && c.status === 'active') || cards[0] || null)
+    : null;
 
 
   return (

@@ -20,15 +20,39 @@ import './style/modals.css';
 
 function App() {
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('wmsu_auth_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
+  // On every page load, verify the stored token is still valid.
+  // If missing or expired, clear storage and go to login.
+  useEffect(() => {
+    async function verifySession() {
+      try {
+        const saved = localStorage.getItem('wmsu_auth_user');
+        if (!saved) { setAuthChecked(true); return; }
+
+        const { token } = JSON.parse(saved);
+        if (!token) { localStorage.removeItem('wmsu_auth_user'); setAuthChecked(true); return; }
+
+        const res = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const user = await res.json();
+          setCurrentUser({ ...user, token });
+        } else {
+          // token expired or invalid — force re-login
+          localStorage.removeItem('wmsu_auth_user');
+        }
+      } catch {
+        localStorage.removeItem('wmsu_auth_user');
+      } finally {
+        setAuthChecked(true);
+      }
+    }
+    verifySession();
+  }, []);
 
   const [authView, setAuthView] = useState('login');
 
@@ -52,20 +76,23 @@ function App() {
           ? { student_id: currentUser.profile?.id || 1 }
           : {};
         const apps = await api.getApplications(params);
-        setUserApplications(apps || []);
-        if (apps && apps.length > 0) {
+        const safeApps = Array.isArray(apps) ? apps : [];
+        setUserApplications(safeApps);
+        if (safeApps.length > 0) {
           setStatusTrackApp(prev => {
             if (prev) {
-              const matched = apps.find(a => a.id === prev.id);
+              const matched = safeApps.find(a => a.id === prev.id);
               if (matched) return matched;
             }
-            return apps[apps.length - 1];
+            return safeApps[safeApps.length - 1];
           });
         } else {
           setStatusTrackApp(null);
         }
       } catch (err) {
         console.error('Failed to load applications for status', err);
+        setUserApplications([]);
+        setStatusTrackApp(null);
       }
     }
     loadUserApps();
@@ -108,6 +135,14 @@ function App() {
     if (app) setStatusTrackApp(app);
     setIsStatusModalOpen(true);
   };
+
+  if (!authChecked) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'rgb(24, 23, 25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+        Loading...
+      </div>
+    );
+  }
 
   if (!currentUser) {
     if (authView === 'sign_in') {

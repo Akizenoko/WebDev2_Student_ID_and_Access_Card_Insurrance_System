@@ -20,11 +20,14 @@ function AdminDashboard({ currentUser, onSelectApp }) {
         api.getCards(),
         api.getReissuanceRequests(),
       ]);
-      setApplications(apps);
-      setCards(cardList);
-      setReissuances(reissueList);
+      setApplications(Array.isArray(apps) ? apps : []);
+      setCards(Array.isArray(cardList) ? cardList : []);
+      setReissuances(Array.isArray(reissueList) ? reissueList : []);
     } catch (err) {
       console.error('Error fetching admin data', err);
+      setApplications([]);
+      setCards([]);
+      setReissuances([]);
     } finally {
       setLoading(false);
     }
@@ -34,11 +37,12 @@ function AdminDashboard({ currentUser, onSelectApp }) {
     loadAll();
   }, [search, statusFilter, typeFilter]);
 
-  const totalApps = applications.length;
-  const submittedCount = applications.filter(a => a.status === 'submitted').length;
-  const processingCount = applications.filter(a => a.status === 'processing').length;
-  const readyCount = applications.filter(a => a.status === 'ready').length;
-  const releasedCount = applications.filter(a => a.status === 'released').length;
+  const safeApps = Array.isArray(applications) ? applications : [];
+  const totalApps = safeApps.length;
+  const submittedCount = safeApps.filter(a => a.status === 'submitted').length;
+  const processingCount = safeApps.filter(a => a.status === 'processing').length;
+  const readyCount = safeApps.filter(a => a.status === 'ready').length;
+  const releasedCount = safeApps.filter(a => a.status === 'released').length;
 
   return (
     <div style={{ padding: '0 50px 60px 50px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
