@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS applications (
   type VARCHAR(20) NOT NULL DEFAULT 'New ID'
     CHECK (type IN ('New ID', 'Replacement')),
   status VARCHAR(20) NOT NULL DEFAULT 'submitted'
-    CHECK (status IN ('submitted', 'processing', 'ready', 'released')),
+    CHECK (status IN ('submitted', 'processing', 'ready', 'released', 'rejected')),
   remarks TEXT,
   submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

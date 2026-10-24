@@ -83,16 +83,22 @@ export const api = {
     return result;
   },
 
-  async updateApplicationStatus(id, status, changed_by) {
-    const res = await fetch(`${API_BASE}/applications/${id}/status`, {
-      method: 'PATCH',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ status, changed_by }),
-    });
-    const result = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(result.message || 'Failed to update status');
-    return result;
-  },
+  updateApplicationStatus: async (id, status, changed_by) => {
+  const saved = JSON.parse(localStorage.getItem('wmsu_auth_user') || '{}');
+  const res = await fetch(`/api/applications/${id}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${saved.token}`,
+    },
+    body: JSON.stringify({ status, changed_by }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Request failed');
+  }
+  return res.json();
+},
 
   async assignApplication(id, assigned_to) {
     const res = await fetch(`${API_BASE}/applications/${id}/assign`, {
