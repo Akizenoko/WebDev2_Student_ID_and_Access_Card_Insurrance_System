@@ -28,6 +28,7 @@ async function getFullUser(userId) {
     };
 }
 
+
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -61,6 +62,17 @@ router.post('/register', async (req, res) => {
     }
     if (password.length < 8) {
         return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+    // wmsu emails only
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@wmsu\.edu\.ph$/.test(cleanEmail)) {
+        return res.status(400).json({ message: 'Only @wmsu.edu.ph email addresses can sign up' });
+    }
+
+    // valid id numbers only ex. 2025-12345
+    const cleanStudentNo = String(student_number).trim();
+    if (!/^\d{4}-\d{5}$/.test(cleanStudentNo)) {
+        return res.status(400).json({ message: 'Student number must look like 2026-12345' });
     }
 
     const client = await pool.connect();
