@@ -13,6 +13,7 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     password: '',
     student_number: '',
     first_name: '',
+    middle_name: '',
     last_name: '',
     program: 'BS Computer Science',
     year_level: '1st Year',
@@ -114,6 +115,20 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             </form>
           ) : (
             <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              <div className="form-group">
+                <label className="form-label">
+                  Middle Name <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Leave blank if none"
+                  value={registerData.middle_name}
+                  onChange={e => setRegisterData({ ...registerData, middle_name: e.target.value })}
+                />
+              </div>
+              
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">First Name *</label>

@@ -11,6 +11,7 @@ function ApplyModal({ isOpen, onClose, currentUser, onSuccess }) {
     type: 'New ID',
     student_number: studentProfile?.student_number || '',
     first_name: studentProfile?.first_name || '',
+    middle_name: studentProfile?.middle_name || '',
     last_name: studentProfile?.last_name || '',
     program: studentProfile?.program || 'BS Computer Science',
     year_level: studentProfile?.year_level || '1st Year',
@@ -106,6 +107,19 @@ function ApplyModal({ isOpen, onClose, currentUser, onSuccess }) {
               <span className="form-hint">Maps to APPLICATIONS.type</span>
             </div>
 
+            <div className="form-group">
+              <label className="form-label">
+                Middle Name <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Leave blank if none"
+                value={formData.middle_name}
+                onChange={e => setFormData({ ...formData, middle_name: e.target.value })}
+              />
+            </div>
+            
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">
