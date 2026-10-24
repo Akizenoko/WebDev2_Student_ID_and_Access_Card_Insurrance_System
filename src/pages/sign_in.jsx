@@ -5,6 +5,7 @@ import wmsulogo from '../assets/wmsulogo.png';
 function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
   const [formData, setFormData] = useState({
     first_name: '',
+    middle_name: '',
     last_name: '',
     student_number: '',
     program: 'BS Computer Science',
@@ -38,6 +39,7 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
         password: formData.password,
         student_number: formData.student_number,
         first_name: formData.first_name,
+        middle_name: formData.middle_name.trim() || null,
         last_name: formData.last_name,
         program: formData.program,
         year_level: formData.year_level,
@@ -146,6 +148,21 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
           )}
 
           <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          
+            <div className="form-group">
+              <label className="form-label">
+                Middle Name <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input
+                type="text"
+                name="middle_name"
+                className="form-input"
+                placeholder="Leave blank if none"
+                value={formData.middle_name}
+                onChange={handleChange}
+              />
+            </div>
+
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">First Name *</label>

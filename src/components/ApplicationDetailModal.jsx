@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../services/api';
 import Arle from '../assets/Arle.png';
 import StatusStepper from './StatusStepper';
+import { formatFullName } from '../utils/formatName';
 
 const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
@@ -85,7 +86,7 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
               </div>
               <div>
                 <h4 style={{ fontSize: '1.15rem', color: '#ffffff', margin: 0 }}>
-                  {application.student ? `${application.student.first_name} ${application.student.last_name}` : 'Student'}
+                  {formatFullName(application.student)}
                 </h4>
                 <p style={{ fontSize: '0.85rem', color: '#9ca3af', margin: '2px 0 0 0' }}>
                   {application.student?.program} &bull; {application.student?.student_number} &bull; {application.student?.year_level}
