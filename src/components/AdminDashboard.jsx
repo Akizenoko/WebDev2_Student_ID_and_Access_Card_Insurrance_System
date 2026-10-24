@@ -7,6 +7,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
   const [applications, setApplications] = useState([]);
   const [cards, setCards] = useState([]);
   const [reissuances, setReissuances] = useState([]);
+  const [allApps, setAllApps] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
@@ -16,11 +17,13 @@ function AdminDashboard({ currentUser, onSelectApp }) {
   const loadAll = async () => {
     try {
       setLoading(true);
-      const [apps, cardList, reissueList] = await Promise.all([
+      const [apps, cardList, reissueList, everything] = await Promise.all([
         api.getApplications({ search, status: statusFilter, type: typeFilter }),
         api.getCards(),
         api.getReissuanceRequests(),
+        api.getApplications({ search: '', status: 'all', type: 'all' }),
       ]);
+      setAllApps(Array.isArray(everything) ? everything : []);
       setApplications(Array.isArray(apps) ? apps : []);
       setCards(Array.isArray(cardList) ? cardList : []);
       setReissuances(Array.isArray(reissueList) ? reissueList : []);
@@ -38,12 +41,12 @@ function AdminDashboard({ currentUser, onSelectApp }) {
     loadAll();
   }, [search, statusFilter, typeFilter]);
 
-  const safeApps = Array.isArray(applications) ? applications : [];
-  const totalApps = safeApps.length;
-  const submittedCount = safeApps.filter(a => a.status === 'submitted').length;
-  const processingCount = safeApps.filter(a => a.status === 'processing').length;
-  const readyCount = safeApps.filter(a => a.status === 'ready').length;
-  const releasedCount = safeApps.filter(a => a.status === 'released').length;
+  const totalApps = allApps.length;
+  const submittedCount = allApps.filter(a => a.status === 'submitted').length;
+  const processingCount = allApps.filter(a => a.status === 'processing').length;
+  const readyCount = allApps.filter(a => a.status === 'ready').length;
+  const releasedCount = allApps.filter(a => a.status === 'released').length;
+  const rejectedCount = allApps.filter(a => a.status === 'rejected').length;
 
   return (
     <div style={{ padding: '0 50px 60px 50px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -71,7 +74,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
         <div style={{ background: '#232225', padding: '18px', borderRadius: '12px', border: '1px solid #3d3b3f' }}>
           <span style={{ fontSize: '0.78rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>Total Applications</span>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '6px' }}>{totalApps}</div>
@@ -96,6 +99,12 @@ function AdminDashboard({ currentUser, onSelectApp }) {
           <span style={{ fontSize: '0.78rem', color: '#34d399', textTransform: 'uppercase', fontWeight: 600 }}>Released Cards</span>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#34d399', marginTop: '6px' }}>{releasedCount}</div>
         </div>
+
+        <div style={{ background: '#232225', padding: '18px', borderRadius: '12px', border: '1px solid #3d3b3f' }}>
+          <span style={{ fontSize: '0.78rem', color: '#f87171', textTransform: 'uppercase', fontWeight: 600 }}>Rejected</span>
+          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f87171', marginTop: '6px' }}>{rejectedCount}</div>
+        </div>
+
       </div>
 
       <div style={{
