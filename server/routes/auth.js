@@ -83,13 +83,12 @@ router.post('/register', async (req, res) => {
             //roles are hardcoded for the student 
         const u = await client.query(
             `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'student') RETURNING id, role`,
-            [email.trim().toLowerCase(), hash]
+            [cleanEmail.trim().toLowerCase(), hash]
         );
         await client.query(
             `INSERT INTO student_profiles (user_id, student_number, first_name, last_name, program, year_level)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-            [u.rows[0].id, student_number, first_name, last_name,
-            program || 'Undecided', year_level || '1st Year']
+            [u.rows[0].id, cleanStudentNo, first_name, last_name, program || 'Undecided', year_level || '1st Year']
         );
         await client.query('COMMIT');
 

@@ -182,6 +182,8 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
                   name="student_number"
                   className="form-input"
                   placeholder="2026-00123"
+                  maxLength={10}
+                  pattern="\d{4}-\d{5}"
                   value={formData.student_number}
                   onChange={handleChange}
                   required
