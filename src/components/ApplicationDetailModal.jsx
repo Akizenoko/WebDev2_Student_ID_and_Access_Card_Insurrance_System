@@ -125,7 +125,7 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
                   <div style={{ marginTop: '10px', padding: '10px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
                     <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '4px' }}>Reissuance Details:</div>
                     <div><span style={{ color: '#9ca3af' }}>Reason:</span> {application.reissuance.reason}</div>
-                    <div><span style={{ color: '#9ca3af' }}>Fee:</span> ₱{application.reissuance.fee_amount?.toFixed(2)}</div>
+                    <div><span style={{ color: '#9ca3af' }}>Fee:</span> ₱{Number(application.reissuance.fee_amount || 0).toFixed(2)}</div>
                     <div><span style={{ color: '#9ca3af' }}>Original Card ID:</span> #{application.reissuance.original_card_id}</div>
                   </div>
                 )}

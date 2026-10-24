@@ -29,7 +29,8 @@ const FULL_APPLICATION_QUERY = `
     c.valid_until,
     rr.id          AS reissuance_id,
     rr.reason,
-    rr.fee_amount
+    rr.fee_amount,
+    rr.original_card_id
   FROM applications a
   LEFT JOIN student_profiles sp ON sp.id = a.student_id
   LEFT JOIN users su             ON su.id = sp.user_id
@@ -83,6 +84,7 @@ function shapeApplication(row) {
       id:         row.reissuance_id,
       reason:     row.reason,
       fee_amount: row.fee_amount,
+      original_card_id: row.original_card_id,
     } : null,
   };
 }

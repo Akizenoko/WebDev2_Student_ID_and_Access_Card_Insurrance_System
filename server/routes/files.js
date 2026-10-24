@@ -6,7 +6,7 @@ const router = express.Router();
 // POST /api/files/upload
 const MAX_BYTES = 2 * 1024 * 1024;                       // 2 MB
 const DATA_URL = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/]+={0,2})$/;
-const ALLOWED_KINDS = ['id_photo'];
+const ALLOWED_KINDS = ['id_photo', 'proof_of_loss'];
 
 // real file signatures ("magic bytes")
 const isPng  = (b) => b.length > 8 && b.subarray(0, 8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]));
