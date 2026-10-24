@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import Arle from '../assets/Arle.png';
+import { formatFullName } from '../utils/formatName';
 
 function AdminDashboard({ currentUser, onSelectApp }) {
   const [applications, setApplications] = useState([]);
@@ -220,7 +221,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
                           />
                           <div>
                             <div style={{ fontWeight: 600, color: '#ffffff' }}>
-                              {student ? `${student.first_name} ${student.last_name}` : 'Unknown'}
+                              {formatFullName(student)}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
                               {student?.student_number}

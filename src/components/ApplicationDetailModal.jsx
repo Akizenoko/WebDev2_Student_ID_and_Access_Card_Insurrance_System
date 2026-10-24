@@ -3,6 +3,9 @@ import { api } from '../services/api';
 import Arle from '../assets/Arle.png';
 import StatusStepper from './StatusStepper';
 
+const formatDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
+
 function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onUpdate }) {
   if (!isOpen || !application) return null;
 
@@ -134,8 +137,8 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
                   <div style={{ marginTop: '10px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                     <div style={{ color: '#10b981', fontWeight: 'bold', marginBottom: '4px' }}>Generated Card Record:</div>
                     <div><span style={{ color: '#9ca3af' }}>Card Number:</span> <strong style={{ color: '#fff' }}>{application.card.card_number}</strong></div>
-                    <div><span style={{ color: '#9ca3af' }}>Issued:</span> {application.card.issue_date}</div>
-                    <div><span style={{ color: '#9ca3af' }}>Valid Until:</span> {application.card.valid_until}</div>
+                    <div><span style={{ color: '#9ca3af' }}>Issued:</span> {formatDate(application.card.issue_date)}</div>
+                    <div><span style={{ color: '#9ca3af' }}>Valid Until:</span> {formatDate(application.card.valid_until)}</div>
                     <div><span style={{ color: '#9ca3af' }}>Status:</span> <strong style={{ color: '#34d399' }}>{application.card.status}</strong></div>
                   </div>
                 )}
