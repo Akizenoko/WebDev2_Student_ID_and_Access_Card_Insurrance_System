@@ -11,6 +11,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
@@ -37,6 +38,11 @@ function AdminDashboard({ currentUser, onSelectApp }) {
     }
   };
 
+  useEffect(() => {
+  const timer = setTimeout(() => setSearch(searchInput), 300);
+  return () => clearTimeout(timer);
+}, [searchInput]);
+  
   useEffect(() => {
     loadAll();
   }, [search, statusFilter, typeFilter]);
@@ -122,8 +128,8 @@ function AdminDashboard({ currentUser, onSelectApp }) {
             type="text"
             className="form-input"
             placeholder="Search by Application #, Student Number, or Name..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
           />
         </div>
 
