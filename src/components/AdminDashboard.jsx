@@ -12,6 +12,8 @@ function AdminDashboard({ currentUser, onSelectApp }) {
 
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
@@ -47,6 +49,12 @@ function AdminDashboard({ currentUser, onSelectApp }) {
     loadAll();
   }, [search, statusFilter, typeFilter]);
 
+  useEffect(() => {
+  setPage(1);
+}, [search, statusFilter, typeFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(applications.length / PAGE_SIZE));
+  const pagedApps = applications.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalApps = allApps.length;
   const submittedCount = allApps.filter(a => a.status === 'submitted').length;
   const processingCount = allApps.filter(a => a.status === 'processing').length;
@@ -198,7 +206,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
                 </tr>
               </thead>
               <tbody>
-                {applications.map(app => {
+                {pagedApps.map(app => {
                   const student = app.student;
                   const photoSrc = app.photo?.storage_path?.startsWith('/assets/Arle.png')
                     ? Arle
@@ -276,6 +284,21 @@ function AdminDashboard({ currentUser, onSelectApp }) {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+          {!loading && applications.length > PAGE_SIZE && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 24px', borderTop: '1px solid #363438' }}>
+            <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
+              Page {page} of {totalPages}
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" className="btn-secondary" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                Previous
+              </button>
+              <button type="button" className="btn-secondary" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
