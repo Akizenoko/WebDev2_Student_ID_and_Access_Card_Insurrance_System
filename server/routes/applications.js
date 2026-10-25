@@ -237,7 +237,7 @@ router.patch('/:id/status', requireRole('admin'), async (req, res) => {
     await client.query(
       `INSERT INTO status_history (application_id, from_status, to_status, changed_by)
        VALUES ($1, $2, $3, $4)`,
-      [appId, oldStatus, status, Number(changed_by) || req.user.id]
+      [appId, oldStatus, status, req.user.id]
     );
 
     // auto-create card when released
