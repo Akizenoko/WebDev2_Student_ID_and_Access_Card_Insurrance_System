@@ -340,6 +340,65 @@ function AdminDashboard({ currentUser, onSelectApp }) {
         )}
       </div>
 
+      <div style={{
+        background: '#232225',
+        border: '1px solid #3a393d',
+        borderRadius: '16px',
+        marginTop: '24px',
+        overflow: 'hidden'
+      }}>
+        <div style={{ padding: '20px 28px', borderBottom: '1px solid #3a393d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0 }}>Reinsurance Requests ({reissuances.length})</h3>
+          <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Lost / Damaged Card Replacements</span>
+        </div>
+
+        {reissuances.length === 0 ? (
+          <p style={{ padding: '24px 28px', color: '#9ca3af', margin: 0 }}>No reinsurance requests yet.</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#9ca3af', fontSize: '0.85rem' }}>
+                <th style={{ padding: '14px 28px' }}>Application No</th>
+                <th>Student</th>
+                <th>Card No</th>
+                <th>Reason</th>
+                <th>Fee</th>
+                <th>Date Filed</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reissuances.map(r => (
+                <tr key={r.id} style={{ borderTop: '1px solid #3a393d' }}>
+                  <td style={{ padding: '14px 28px', fontWeight: 600 }}>{r.application?.application_no || '-'}</td>
+                  <td>
+                    <div>{formatFullName(r.student)}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{r.student?.student_number}</div>
+                  </td>
+                  <td>{r.card?.card_number || '-'}</td>
+                  <td>{r.reason}</td>
+                  <td>₱{Number(r.fee_amount).toFixed(2)}</td>
+                  <td>{new Date(r.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <span style={{
+                      padding: '4px 12px',
+                      borderRadius: '999px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      background: 'rgba(245, 158, 11, 0.15)',
+                      color: '#f59e0b'
+                    }}>
+                      {r.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
     </div>
   );
 }
