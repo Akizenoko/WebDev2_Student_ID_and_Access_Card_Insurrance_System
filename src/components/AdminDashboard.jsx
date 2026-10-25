@@ -18,6 +18,18 @@ function AdminDashboard({ currentUser, onSelectApp }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [sortKey, setSortKey] = useState('submitted_at');
+  const [sortDir, setSortDir] = useState('desc');
+
+  const toggleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+    setPage(1);
+  };
 
   const loadAll = async () => {
     try {
@@ -61,8 +73,24 @@ function AdminDashboard({ currentUser, onSelectApp }) {
     if (dateTo && submitted > new Date(`${dateTo}T23:59:59.999`)) return false;
     return true;
   });
+  const sortedApps = [...visibleApps].sort((a, b) => {
+  let x, y;
+  if (sortKey === 'submitted_at') {
+    x = new Date(a.submitted_at); y = new Date(b.submitted_at);
+  } else if (sortKey === 'applicant') {
+    x = (a.student?.last_name || '').toLowerCase();
+    y = (b.student?.last_name || '').toLowerCase();
+  } else if (sortKey === 'status') {
+    x = a.status; y = b.status;
+  } else {
+    x = a.application_no; y = b.application_no;
+  }
+  if (x < y) return sortDir === 'asc' ? -1 : 1;
+  if (x > y) return sortDir === 'asc' ? 1 : -1;
+  return 0;
+  });
   const totalPages = Math.max(1, Math.ceil(visibleApps.length / PAGE_SIZE));
-  const pagedApps = visibleApps.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pagedApps = sortedApps.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalApps = allApps.length;
   const submittedCount = allApps.filter(a => a.status === 'submitted').length;
   const processingCount = allApps.filter(a => a.status === 'processing').length;
@@ -135,7 +163,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
         border: '1px solid #3d3b3f',
         padding: '16px 20px',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         gap: '16px',
         flexWrap: 'wrap'
       }}>
@@ -234,11 +262,19 @@ function AdminDashboard({ currentUser, onSelectApp }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
               <thead>
                 <tr style={{ background: '#1c1b1d', borderBottom: '1px solid #363438', color: '#9ca3af' }}>
-                  <th style={{ padding: '12px 20px' }}>App No & Type</th>
-                  <th style={{ padding: '12px 20px' }}>Applicant</th>
+                <th style={{ padding: '12px 20px', cursor: 'pointer' }} onClick={() => toggleSort('application_no')}>
+                  App No & Type {sortKey === 'application_no' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                </th>
+                <th style={{ padding: '12px 20px', cursor: 'pointer' }} onClick={() => toggleSort('applicant')}>
+                  Applicant {sortKey === 'applicant' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                </th>
                   <th style={{ padding: '12px 20px' }}>Program / Year</th>
-                  <th style={{ padding: '12px 20px' }}>Submitted Date</th>
-                  <th style={{ padding: '12px 20px' }}>Status</th>
+                  <th style={{ padding: '12px 20px', cursor: 'pointer' }} onClick={() => toggleSort('submitted_at')}>
+                    Submitted Date {sortKey === 'submitted_at' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th style={{ padding: '12px 20px', cursor: 'pointer' }} onClick={() => toggleSort('status')}>
+                    Status {sortKey === 'status' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
                   <th style={{ padding: '12px 20px', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
