@@ -16,6 +16,8 @@ function AdminDashboard({ currentUser, onSelectApp }) {
   const PAGE_SIZE = 10;
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const loadAll = async () => {
     try {
@@ -51,10 +53,16 @@ function AdminDashboard({ currentUser, onSelectApp }) {
 
   useEffect(() => {
   setPage(1);
-}, [search, statusFilter, typeFilter]);
+}, [search, statusFilter, typeFilter, dateFrom, dateTo]);
 
-  const totalPages = Math.max(1, Math.ceil(applications.length / PAGE_SIZE));
-  const pagedApps = applications.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const visibleApps = applications.filter(app => {
+  const submitted = new Date(app.submitted_at);
+    if (dateFrom && submitted < new Date(`${dateFrom}T00:00:00`)) return false;
+    if (dateTo && submitted > new Date(`${dateTo}T23:59:59.999`)) return false;
+    return true;
+  });
+  const totalPages = Math.max(1, Math.ceil(visibleApps.length / PAGE_SIZE));
+  const pagedApps = visibleApps.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalApps = allApps.length;
   const submittedCount = allApps.filter(a => a.status === 'submitted').length;
   const processingCount = allApps.filter(a => a.status === 'processing').length;
@@ -141,7 +149,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
           <select
             className="form-select"
             value={statusFilter}
@@ -167,6 +175,35 @@ function AdminDashboard({ currentUser, onSelectApp }) {
             <option value="Access Card">Access Card</option>
             <option value="Replacement">Replacement</option>
           </select>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.7rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>
+            Submitted From
+            <input
+              type="date"
+              className="form-input"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={e => setDateFrom(e.target.value)}
+              style={{ width: '160px' }}
+            />
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.7rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>
+            Submitted To
+            <input
+              type="date"
+              className="form-input"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={e => setDateTo(e.target.value)}
+              style={{ width: '160px' }}
+            />
+          </label>
+          {(dateFrom || dateTo) && (
+            <button type="button" className="btn-secondary" onClick={() => { setDateFrom(''); setDateTo(''); }}>
+              Clear dates
+            </button>
+          )}
         </div>
       </div>
 
@@ -179,7 +216,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
       }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid #363438', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0, color: '#ffffff', fontSize: '1.1rem' }}>
-            Issuance Applications Queue ({applications.length})
+            Insurance Applications Queue ({visibleApps.length})
           </h3>
           <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
             Official Verification Queue
@@ -188,7 +225,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
 
         {loading ? (
           <div style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>Loading records...</div>
-        ) : applications.length === 0 ? (
+        ) : visibleApps.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '50px 20px', color: '#9ca3af' }}>
             No applications found matching the selected filters.
           </div>
@@ -286,7 +323,7 @@ function AdminDashboard({ currentUser, onSelectApp }) {
             </table>
           </div>
         )}
-          {!loading && applications.length > PAGE_SIZE && (
+          {!loading && visibleApps.length > PAGE_SIZE && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 24px', borderTop: '1px solid #363438' }}>
             <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
               Page {page} of {totalPages}
