@@ -9,6 +9,8 @@ import ApplicationDetailModal from './components/ApplicationDetailModal.jsx';
 import CardRecordModal from './components/CardRecordModal.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import StatusTrackerModal from './components/StatusTrackerModal.jsx';
+import ProfileModal from './components/ProfileModal.jsx';
+import LogoutConfirmModal from './components/LogoutConfirmModal.jsx';
 import LoginPage from './pages/login.jsx';
 import SignInPage from './pages/sign_in.jsx';
 import { api } from './services/api.js';
@@ -60,6 +62,8 @@ function App() {
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [isReissueOpen, setIsReissueOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [selectedApp, setSelectedApp] = useState(null);
   const [viewingCard, setViewingCard] = useState(null);
@@ -169,8 +173,9 @@ function App() {
         onOpenApply={() => setIsApplyOpen(true)}
         onOpenReissue={() => setIsReissueOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenProfile={() => setIsProfileOpen(true)}
         onOpenStatusModal={() => setIsStatusModalOpen(true)}
-        onLogout={handleLogout}
+        onLogout={() => setIsLogoutConfirmOpen(true)}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
@@ -180,6 +185,7 @@ function App() {
         onOpenApply={() => setIsApplyOpen(true)}
         onOpenReissue={() => setIsReissueOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenProfile={() => setIsProfileOpen(true)}
         onOpenStatusModal={() => setIsStatusModalOpen(true)}
         activeApplication={statusTrackApp}
       />
@@ -203,6 +209,36 @@ function App() {
           />
         )}
       </main>
+
+      {/* User Profile & Identification Modal */}
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        currentUser={currentUser}
+        onOpenSwitchUser={() => {
+          setIsProfileOpen(false);
+          setIsAuthOpen(true);
+        }}
+        onRequestLogout={() => {
+          setIsProfileOpen(false);
+          setIsLogoutConfirmOpen(true);
+        }}
+        onViewCard={(card) => {
+          setIsProfileOpen(false);
+          setViewingCard(card);
+        }}
+      />
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={isLogoutConfirmOpen}
+        onClose={() => setIsLogoutConfirmOpen(false)}
+        onConfirm={() => {
+          setIsLogoutConfirmOpen(false);
+          handleLogout();
+        }}
+        currentUser={currentUser}
+      />
 
       {/* Issuance Application Modal */}
       <ApplyModal

@@ -7,6 +7,7 @@ function Navbar({
   onOpenApply,
   onOpenReissue,
   onOpenAuth,
+  onOpenProfile,
   onOpenStatusModal,
   onLogout,
   setActiveTab
@@ -48,16 +49,14 @@ function Navbar({
             </button>
           </div>
         )}
-
-
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <div
           className='profile'
           style={{ cursor: 'pointer' }}
-          onClick={onOpenAuth}
-          title="Click to Switch User / Profile"
+          onClick={onOpenProfile || onOpenAuth}
+          title="Click to view profile & identification"
         >
           <img src={Arle} alt="Profile" />
           <div>

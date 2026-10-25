@@ -8,6 +8,7 @@ function Header({
   onOpenApply,
   onOpenReissue,
   onOpenAuth,
+  onOpenProfile,
   onOpenStatusModal,
   activeApplication
 }) {
@@ -67,7 +68,12 @@ function Header({
 
       {/* Header Profile Info and Action Buttons Row */}
       <div className='headerContentRow'>
-        <div className='profileHeader' onClick={onOpenAuth} style={{ cursor: 'pointer' }} title="Click to view profile or switch account">
+        <div
+          className='profileHeader'
+          onClick={onOpenProfile || onOpenAuth}
+          style={{ cursor: 'pointer' }}
+          title="Click to view profile & identification"
+        >
           <img src={Arle} alt="Profile" />
           <div>
             <h1>{title}</h1>
