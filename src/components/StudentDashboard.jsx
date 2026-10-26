@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import StatusStepper from './StatusStepper';
+import ApplyConfirmModal from './ApplyConfirmModal';
 
 function StudentDashboard({ currentUser, onOpenApply, onOpenReissue, onSelectApp, onViewCard, onOpenStatusModal }) {
   const studentProfile = currentUser?.profile;
@@ -31,6 +32,27 @@ function StudentDashboard({ currentUser, onOpenApply, onOpenReissue, onSelectApp
     loadData();
   }, [currentUser]);
 
+  const [applyCheck, setApplyCheck] = useState(null);
+
+  const handleApplyClick = () => {
+    if (loading) return;
+
+    const newIdApps = applications.filter(a => a.type === 'New ID');
+    const inProgress = newIdApps.find(a => ['submitted', 'processing', 'ready'].includes(a.status));
+    const issuedCard = cards.find(c => c.status === 'active');
+    const wasRejected = newIdApps.length > 0 && newIdApps.every(a => a.status === 'rejected');
+
+    if (inProgress) {
+      setApplyCheck({ mode: 'inProgress', application: inProgress });
+    } else if (issuedCard) {
+      setApplyCheck({ mode: 'hasCard', card: issuedCard });
+    } else if (wasRejected) {
+      setApplyCheck({ mode: 'rejected' });
+    } else {
+      setApplyCheck({ mode: 'confirm' });
+    }
+  };
+  
   const activeCard = Array.isArray(cards)
     ? (cards.find(c => c && c.status === 'active') || cards[0] || null)
     : null;
@@ -103,7 +125,7 @@ function StudentDashboard({ currentUser, onOpenApply, onOpenReissue, onSelectApp
               <button
                 type="button"
                 className="btn-primary"
-                onClick={onOpenApply}
+                onClick={handleApplyClick}
               >
                 <i className="fa-solid fa-plus" style={{ marginRight: '6px' }}></i>
                 Apply for First ID
@@ -135,7 +157,7 @@ function StudentDashboard({ currentUser, onOpenApply, onOpenReissue, onSelectApp
               type="button"
               className="btn-secondary"
               style={{ background: '#ffffff', color: '#111', fontWeight: 'bold' }}
-              onClick={onOpenApply}
+              onClick={handleApplyClick}
             >
               <i className="fa-solid fa-plus" style={{ marginRight: '6px' }}></i>
               New Application
@@ -182,7 +204,7 @@ function StudentDashboard({ currentUser, onOpenApply, onOpenReissue, onSelectApp
           <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af' }}>
             <p style={{ fontSize: '1.05rem', color: '#e5e7eb', marginBottom: '8px' }}>No applications on file yet</p>
             <p style={{ fontSize: '0.85rem', marginBottom: '18px' }}>Submit an ID or Access Card application to start tracking.</p>
-            <button type="button" className="btn-primary" onClick={onOpenApply}>
+            <button type="button" className="btn-primary" onClick={handleApplyClick}>
               <i className="fa-solid fa-plus" style={{ marginRight: '6px' }}></i>
               Apply Now
             </button>
@@ -259,6 +281,20 @@ function StudentDashboard({ currentUser, onOpenApply, onOpenReissue, onSelectApp
           </div>
         )}
       </div>
+
+      <ApplyConfirmModal
+        isOpen={!!applyCheck}
+        mode={applyCheck?.mode}
+        application={applyCheck?.application}
+        card={applyCheck?.card}
+        onClose={() => setApplyCheck(null)}
+        onConfirm={() => { setApplyCheck(null); onOpenApply(); }}
+        onViewStatus={(app) => {
+          setApplyCheck(null);
+          onOpenStatusModal ? onOpenStatusModal(app) : onSelectApp(app);
+        }}
+        onReissue={() => { setApplyCheck(null); onOpenReissue(); }}
+      />
 
     </div>
   );
