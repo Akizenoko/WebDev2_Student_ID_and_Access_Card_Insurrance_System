@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
       `SELECT
          rr.*,
          c.card_number, c.status AS card_status,
-         sp.first_name, sp.last_name, sp.student_number,
+         sp.first_name, sp.middle_name, sp.last_name, sp.student_number,
          a.application_no, a.status AS application_status, a.type
        FROM reissuance_requests rr
        LEFT JOIN cards c              ON c.id  = rr.original_card_id
@@ -32,6 +32,7 @@ router.get('/', async (req, res) => {
       },
       student: {
         first_name:     r.first_name,
+        middle_name:    r.middle_name,
         last_name:      r.last_name,
         student_number: r.student_number,
       },

@@ -69,7 +69,7 @@ function StudentDashboard({ currentUser, onOpenApply, onOpenReissue, onSelectApp
                 <div><span style={{ color: '#9ca3af' }}>Card Number:</span> <strong style={{ color: '#fff' }}>{activeCard.card_number}</strong></div>
                 <div><span style={{ color: '#9ca3af' }}>Issue Date:</span> {activeCard.issue_date}</div>
                 <div><span style={{ color: '#9ca3af' }}>Valid Until:</span> {activeCard.valid_until}</div>
-                <div><span style={{ color: '#9ca3af' }}>Owner:</span> {studentProfile?.first_name} {studentProfile?.last_name} ({studentProfile?.student_number})</div>
+                <div><span style={{ color: '#9ca3af' }}>Owner:</span> {studentProfile?.first_name} {studentProfile?.middle_name} {studentProfile?.last_name} ({studentProfile?.student_number})</div>
               </div>
             ) : (
               <div style={{ color: '#9ca3af', fontSize: '0.9rem', padding: '16px 0' }}>

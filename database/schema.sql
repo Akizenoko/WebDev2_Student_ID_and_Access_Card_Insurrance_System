@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS student_profiles (
   user_id INT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   student_number VARCHAR(30) UNIQUE NOT NULL,
   first_name VARCHAR(100) NOT NULL,
+  middle_name VARCHAR(100),
   last_name VARCHAR(100) NOT NULL,
   program VARCHAR(100) NOT NULL DEFAULT 'Undecided',
   year_level VARCHAR(20) NOT NULL DEFAULT '1st Year'

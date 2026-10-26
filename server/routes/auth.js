@@ -55,7 +55,7 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/register', async (req, res) => {
-    const { email, password, student_number, first_name, last_name, program, year_level } = req.body;
+    const { email, password, student_number, first_name, middle_name, last_name, program, year_level } = req.body;
 
     if (!email || !password || !student_number || !first_name || !last_name) {
         return res.status(400).json({ message: 'All required fields must be provided' });
@@ -75,6 +75,11 @@ router.post('/register', async (req, res) => {
         return res.status(400).json({ message: 'Student number must look like 2026-12345' });
     }
 
+    const cleanMiddle = String(middle_name ?? '').trim() || null;
+if (cleanMiddle && cleanMiddle.length > 100) {
+    return res.status(400).json({ message: 'Middle name is too long' });
+}
+
     const client = await pool.connect();
     try {
         const hash = await bcrypt.hash(password, 10);
@@ -86,9 +91,9 @@ router.post('/register', async (req, res) => {
             [cleanEmail.trim().toLowerCase(), hash]
         );
         await client.query(
-            `INSERT INTO student_profiles (user_id, student_number, first_name, last_name, program, year_level)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-            [u.rows[0].id, cleanStudentNo, first_name, last_name, program || 'Undecided', year_level || '1st Year']
+            `INSERT INTO student_profiles (user_id, student_number, first_name, middle_name, last_name, program, year_level)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [u.rows[0].id, cleanStudentNo, first_name.trim(), cleanMiddle, last_name.trim(), program || 'Undecided', year_level || '1st Year']
         );
         await client.query('COMMIT');
 

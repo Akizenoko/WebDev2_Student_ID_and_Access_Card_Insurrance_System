@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT
          c.*,
-         sp.student_number, sp.first_name, sp.last_name, sp.program, sp.year_level,
+         sp.student_number, sp.first_name, sp.middle_name, sp.last_name, sp.program, sp.year_level,
          a.application_no, a.type AS application_type,
          uf.storage_path, uf.media_type
        FROM cards c
@@ -43,6 +43,7 @@ router.get('/', async (req, res) => {
       student: {
         student_number: r.student_number,
         first_name:     r.first_name,
+        middle_name:    r.middle_name,
         last_name:      r.last_name,
         program:        r.program,
         year_level:     r.year_level,
@@ -68,7 +69,7 @@ router.get('/:id', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT
          c.*,
-         sp.student_number, sp.first_name, sp.last_name, sp.program, sp.year_level,
+         sp.student_number, sp.first_name, sp.middle_name, sp.last_name, sp.program, sp.year_level,
          a.application_no, a.type AS application_type,
          uf.storage_path, uf.media_type
        FROM cards c
@@ -92,6 +93,7 @@ router.get('/:id', async (req, res) => {
       student: {
         student_number: r.student_number,
         first_name:     r.first_name,
+        middle_name:    r.middle_name,
         last_name:      r.last_name,
         program:        r.program,
         year_level:     r.year_level,

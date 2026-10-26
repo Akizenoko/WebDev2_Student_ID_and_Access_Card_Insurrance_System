@@ -24,9 +24,9 @@ try {
 
   await client.query(
     `INSERT INTO student_profiles
-       (id, user_id, student_number, first_name, last_name, program, year_level)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [1, 1, '2025-01190', 'The', 'Knave', 'BS Computer Science', '3rd Year']
+       (id, user_id, student_number, first_name, middle_name, last_name, program, year_level)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [1, 1, '2025-01190', 'The', 'of', 'Knave', 'BS Computer Science', '3rd Year']
   );
 
   await client.query(

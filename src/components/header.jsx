@@ -16,7 +16,10 @@ function Header({
   const profile = currentUser?.profile;
 
   const title = isStudent
-    ? `Welcome, ${profile?.first_name || 'The'} ${profile?.last_name || 'Knave'}`
+    ? <div style={{ whiteSpace: 'pre-line' }}>
+  {`Welcome,
+${profile?.first_name || 'The'} ${profile?.middle_name || 'of'} ${profile?.last_name || 'Knave'}`}
+</div>
     : `Welcome, ${profile?.office || 'Registrar Administrator'}`;
 
   const subtitle = isStudent

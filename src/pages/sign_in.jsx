@@ -149,19 +149,7 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
 
           <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           
-            <div className="form-group">
-              <label className="form-label">
-                Middle Name <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
-              </label>
-              <input
-                type="text"
-                name="middle_name"
-                className="form-input"
-                placeholder="Leave blank if none"
-                value={formData.middle_name}
-                onChange={handleChange}
-              />
-            </div>
+            
 
             <div className="form-row">
               <div className="form-group">
@@ -191,6 +179,20 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
               </div>
             </div>
 
+            <div className="form-group">
+              <label className="form-label">
+                Middle Name <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input
+                type="text"
+                name="middle_name"
+                className="form-input"
+                placeholder="Leave blank if none"
+                value={formData.middle_name}
+                onChange={handleChange}
+              />
+            </div>
+            
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Student ID Number *</label>

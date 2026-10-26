@@ -19,7 +19,7 @@ function Navbar({
   const adminProfile = isAdmin ? currentUser.profile : null;
 
   const displayName = isStudent
-    ? `${studentProfile?.first_name || 'Student'} ${studentProfile?.last_name || ''}`
+    ? `${studentProfile?.first_name || 'Student'} ${studentProfile?.middle_name || ''} ${studentProfile?.last_name || ''}`
     : 'Admin Officer';
 
   const subtitle = isStudent
