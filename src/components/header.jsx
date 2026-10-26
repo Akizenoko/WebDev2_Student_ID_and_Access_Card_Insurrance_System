@@ -18,7 +18,7 @@ function Header({
   const title = isStudent
     ? <div style={{ whiteSpace: 'pre-line' }}>
   {`Welcome,
-${profile?.first_name || 'The'} ${profile?.middle_name || 'of'} ${profile?.last_name || 'Knave'}`}
+${profile?.first_name || 'The'} ${profile?.middle_name || ''} ${profile?.last_name || 'Knave'}`}
 </div>
     : `Welcome, ${profile?.office || 'Registrar Administrator'}`;
 
