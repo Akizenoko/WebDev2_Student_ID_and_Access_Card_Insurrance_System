@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { api } from '../services/api';
 import Arle from '../assets/Arle.png';
 import StatusStepper from './StatusStepper';
@@ -7,18 +7,28 @@ import { formatFullName } from '../utils/formatName';
 const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
 
-function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onUpdate }) {
+const ALLOWED_NEXT = {
+  submitted: ['processing', 'rejected'],
+  processing: ['ready', 'rejected'],
+  ready: ['released', 'rejected'],
+  released: [],
+  rejected: [],
+};
+
+function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onUpdate, onViewCard }) {
+  const [updating, setUpdating] = useState(false);
+  const [adminRemarks, setAdminRemarks] = useState('');
+
   if (!isOpen || !application) return null;
 
   const isAdmin = currentUser?.role === 'admin';
-  const [updating, setUpdating] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState(application.status);
+  const allowedNextStatuses = ALLOWED_NEXT[application.status] || [];
 
   const handleStatusChange = async (newStatus) => {
     try {
       setUpdating(true);
-      await api.updateApplicationStatus(application.id, newStatus, currentUser?.id || 2);
-      setSelectedStatus(newStatus);
+      await api.updateApplicationStatus(application.id, newStatus, adminRemarks);
+      setAdminRemarks('');
       setUpdating(false);
       onUpdate?.();
     } catch (err) {
@@ -100,6 +110,20 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
             </div>
           </div>
 
+          {application.remarks && (
+            <div style={{
+              background: 'rgba(251, 191, 36, 0.1)',
+              border: '1px solid rgba(251, 191, 36, 0.3)',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              fontSize: '0.85rem',
+              color: '#fef08a'
+            }}>
+              <i className="fa-solid fa-message" style={{ marginRight: '8px', color: '#fbbf24' }}></i>
+              <strong>Registrar / Admin Note:</strong> {application.remarks}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div style={{ background: '#1c1b1d', padding: '16px', borderRadius: '12px', border: '1px solid #363438' }}>
               <h5 style={{ fontSize: '0.9rem', color: '#f87171', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -135,12 +159,25 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
                 )}
 
                 {application.card && (
-                  <div style={{ marginTop: '10px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                    <div style={{ color: '#10b981', fontWeight: 'bold', marginBottom: '4px' }}>Generated Card Record:</div>
+                  <div style={{ marginTop: '10px', padding: '12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>Generated Card Record:</span>
+                      {onViewCard && (
+                        <button
+                          type="button"
+                          className="btn-outline"
+                          style={{ fontSize: '0.72rem', padding: '2px 8px' }}
+                          onClick={() => onViewCard(application.card)}
+                        >
+                          <i className="fa-solid fa-eye" style={{ marginRight: '4px' }}></i>
+                          View Card
+                        </button>
+                      )}
+                    </div>
                     <div><span style={{ color: '#9ca3af' }}>Card Number:</span> <strong style={{ color: '#fff' }}>{application.card.card_number}</strong></div>
-                    <div><span style={{ color: '#9ca3af' }}>Issued:</span> {formatDate(application.card.issue_date)}</div>
+                    <div><span style={{ color: '#9ca3af' }}>Issue Date:</span> {formatDate(application.card.issue_date)}</div>
                     <div><span style={{ color: '#9ca3af' }}>Valid Until:</span> {formatDate(application.card.valid_until)}</div>
-                    <div><span style={{ color: '#9ca3af' }}>Status:</span> <strong style={{ color: '#34d399' }}>{application.card.status}</strong></div>
+                    <div><span style={{ color: '#9ca3af' }}>Card Status:</span> <strong style={{ color: '#34d399' }}>{application.card.status?.toUpperCase()}</strong></div>
                   </div>
                 )}
               </div>
@@ -169,6 +206,11 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
                     <div className="timeline-desc">
                       Changed by: {step.changer_email} ({step.changer_role})
                     </div>
+                    {step.remarks && (
+                      <div style={{ marginTop: '4px', fontSize: '0.78rem', color: '#fbbf24', fontStyle: 'italic' }}>
+                        Note: "{step.remarks}"
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -178,65 +220,110 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
           {isAdmin && (
             <div style={{
               background: '#222123',
-              padding: '16px 20px',
+              padding: '18px 20px',
               borderRadius: '12px',
               border: '1px solid rgba(194, 47, 47, 0.4)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px'
+              gap: '14px'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#fff' }}>
                   <i className="fa-solid fa-gear" style={{ marginRight: '6px' }}></i>
-                  Admin Status Management:
+                  Admin Status Management
                 </span>
                 <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
                   Current Status: <strong style={{ color: '#f87171' }}>{application.status}</strong>
                 </span>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn-outline"
-                  disabled={updating || application.status === 'processing'}
-                  onClick={() => handleStatusChange('processing')}
-                  style={{ borderColor: '#f59e0b', color: '#fbbf24' }}
-                >
-                  <i className="fa-solid fa-spinner" style={{ marginRight: '6px' }}></i>
-                  Mark In Processing
-                </button>
-                <button
-                  type="button"
-                  className="btn-outline"
-                  disabled={updating || application.status === 'ready'}
-                  onClick={() => handleStatusChange('ready')}
-                  style={{ borderColor: '#a855f7', color: '#c084fc' }}
-                >
-                  <i className="fa-solid fa-box" style={{ marginRight: '6px' }}></i>
-                  Mark Ready for Pickup
-                </button>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  disabled={updating || application.status === 'released'}
-                  onClick={() => handleStatusChange('released')}
-                  style={{ background: '#10b981', borderColor: '#059669' }}
-                >
-                  <i className="fa-solid fa-check" style={{ marginRight: '6px' }}></i>
-                  Release Card
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  disabled={updating || application.status === 'rejected'}
-                  onClick={() => handleStatusChange('rejected')}
-                  style={{ color: '#f87171' }}
-                >
-                  <i className="fa-solid fa-ban" style={{ marginRight: '6px' }}></i>
-                  Reject
-                </button>
-              </div>
+              {allowedNextStatuses.length === 0 ? (
+                <div style={{
+                  color: application.status === 'released' ? '#34d399' : '#f87171',
+                  background: 'rgba(255,255,255,0.05)',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem'
+                }}>
+                  <i className="fa-solid fa-circle-check" style={{ marginRight: '6px' }}></i>
+                  This application has completed its lifecycle (Status: <strong>{application.status.toUpperCase()}</strong>). No further status updates are required.
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#9ca3af', marginBottom: '6px' }}>
+                      Status Transition Note / Remarks for Student (Optional):
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Card printed, available at Window 4 with COR; or reason if rejecting..."
+                      value={adminRemarks}
+                      onChange={e => setAdminRemarks(e.target.value)}
+                      disabled={updating}
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    {allowedNextStatuses.includes('processing') && (
+                      <button
+                        type="button"
+                        className="btn-outline"
+                        disabled={updating}
+                        onClick={() => handleStatusChange('processing')}
+                        style={{ borderColor: '#f59e0b', color: '#fbbf24' }}
+                      >
+                        <i className="fa-solid fa-spinner" style={{ marginRight: '6px' }}></i>
+                        Advance to In Processing
+                      </button>
+                    )}
+                    {allowedNextStatuses.includes('ready') && (
+                      <button
+                        type="button"
+                        className="btn-outline"
+                        disabled={updating}
+                        onClick={() => handleStatusChange('ready')}
+                        style={{ borderColor: '#a855f7', color: '#c084fc' }}
+                      >
+                        <i className="fa-solid fa-box" style={{ marginRight: '6px' }}></i>
+                        Mark Ready for Pickup
+                      </button>
+                    )}
+                    {allowedNextStatuses.includes('released') && (
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={updating}
+                        onClick={() => handleStatusChange('released')}
+                        style={{ background: '#10b981', borderColor: '#059669' }}
+                      >
+                        <i className="fa-solid fa-check" style={{ marginRight: '6px' }}></i>
+                        Release Card & Generate Registry Record
+                      </button>
+                    )}
+                    {allowedNextStatuses.includes('rejected') && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={updating}
+                        onClick={() => {
+                          if (!adminRemarks) {
+                            const note = window.prompt('Please provide a reason or note for rejecting this application:');
+                            if (note === null) return;
+                            setAdminRemarks(note);
+                          }
+                          handleStatusChange('rejected');
+                        }}
+                        style={{ color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)' }}
+                      >
+                        <i className="fa-solid fa-ban" style={{ marginRight: '6px' }}></i>
+                        Reject Application
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

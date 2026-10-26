@@ -1,4 +1,3 @@
-import React from 'react';
 import wmsulogo from '../assets/wmsulogo.png';
 import Arle from '../assets/Arle.png';
 

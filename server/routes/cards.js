@@ -25,10 +25,18 @@ router.get('/', async (req, res) => {
          c.*,
          sp.student_number, sp.first_name, sp.middle_name, sp.last_name, sp.program, sp.year_level,
          a.application_no, a.type AS application_type,
+         CASE
+           WHEN a.type = 'Access Card' THEN 'Access Card'
+           WHEN orig_a.type = 'Access Card' THEN 'Access Card'
+           ELSE 'Student ID'
+         END AS card_type,
          uf.storage_path, uf.media_type
        FROM cards c
        LEFT JOIN student_profiles sp ON sp.id = c.student_id
        LEFT JOIN applications a      ON a.id  = c.application_id
+       LEFT JOIN reissuance_requests rr ON rr.application_id = a.id
+       LEFT JOIN cards orig_c        ON orig_c.id = rr.original_card_id
+       LEFT JOIN applications orig_a ON orig_a.id = orig_c.application_id
        LEFT JOIN uploaded_files uf   ON uf.id = a.photo_file_id
        ${where}
        ORDER BY c.issue_date DESC`,
@@ -38,6 +46,7 @@ router.get('/', async (req, res) => {
     res.json(rows.map(r => ({
       id:             r.id,
       card_number:    r.card_number,
+      card_type:      r.card_type,
       status:         r.status,
       issue_date:     r.issue_date,
       valid_until:    r.valid_until,
@@ -74,10 +83,18 @@ router.get('/:id', async (req, res) => {
          c.*,
          sp.student_number, sp.first_name, sp.middle_name, sp.last_name, sp.program, sp.year_level,
          a.application_no, a.type AS application_type,
+         CASE
+           WHEN a.type = 'Access Card' THEN 'Access Card'
+           WHEN orig_a.type = 'Access Card' THEN 'Access Card'
+           ELSE 'Student ID'
+         END AS card_type,
          uf.storage_path, uf.media_type
        FROM cards c
        LEFT JOIN student_profiles sp ON sp.id = c.student_id
        LEFT JOIN applications a      ON a.id  = c.application_id
+       LEFT JOIN reissuance_requests rr ON rr.application_id = a.id
+       LEFT JOIN cards orig_c        ON orig_c.id = rr.original_card_id
+       LEFT JOIN applications orig_a ON orig_a.id = orig_c.application_id
        LEFT JOIN uploaded_files uf   ON uf.id = a.photo_file_id
        WHERE c.id = $1`,
       [Number(req.params.id)]
@@ -89,6 +106,7 @@ router.get('/:id', async (req, res) => {
     res.json({
       id:             r.id,
       card_number:    r.card_number,
+      card_type:      r.card_type,
       status:         r.status,
       issue_date:     r.issue_date,
       valid_until:    r.valid_until,

@@ -1,5 +1,3 @@
-import React from 'react';
-
 const TONES = {
   red: {
     header: 'linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)',
@@ -17,7 +15,7 @@ const TONES = {
   },
 };
 
-function ApplyConfirmModal({ isOpen, mode, application, card, onClose, onConfirm, onViewStatus, onReissue }) {
+function ApplyConfirmModal({ isOpen, mode, application, card, onClose, onConfirm, onViewStatus, onReissue, onRenew }) {
   if (!isOpen) return null;
 
   const config = {
@@ -38,8 +36,13 @@ function ApplyConfirmModal({ isOpen, mode, application, card, onClose, onConfirm
     },
     hasCard: {
       tone: 'amber', icon: 'fa-circle-check', title: 'ID Already Issued',
-      heading: 'You already have a student ID',
-      text: 'A new ID is not needed. If your card is lost or damaged, request a reissuance instead.',
+      heading: 'You already have an active student ID',
+      text: 'A new application is not needed. Your current card is still valid. You can only renew your card once the valid until date is over. If lost or damaged, request a reissuance.',
+    },
+    hasExpiredCard: {
+      tone: 'red', icon: 'fa-arrows-rotate', title: 'ID Validation Expired',
+      heading: 'Your Student ID validation is over',
+      text: 'The validity period for your student card has ended. You can submit a card renewal request now to renew your ID.',
     },
   }[mode];
 
@@ -94,7 +97,7 @@ function ApplyConfirmModal({ isOpen, mode, application, card, onClose, onConfirm
             </div>
           )}
 
-          {mode === 'hasCard' && card && (
+          {(mode === 'hasCard' || mode === 'hasExpiredCard') && card && (
             <div style={{ background: '#1f1e21', border: '1px solid #38363a', borderRadius: '10px', padding: '12px 14px', fontSize: '0.85rem', color: '#d1d5db' }}>
               <span style={{ color: '#9ca3af', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase' }}>Your Card</span>
               <strong style={{ color: '#ffffff' }}>{card.card_number}</strong>
@@ -122,8 +125,14 @@ function ApplyConfirmModal({ isOpen, mode, application, card, onClose, onConfirm
               View Status
             </button>
           )}
+          {mode === 'hasExpiredCard' && (
+            <button type="button" className="btn-primary" onClick={onRenew}>
+              <i className="fa-solid fa-arrows-rotate" style={{ marginRight: '6px' }}></i>
+              Renew Card Now
+            </button>
+          )}
           {mode === 'hasCard' && (
-            <button type="button" className="btn-primary" onClick={onReissue}>
+            <button type="button" className="btn-primary" onClick={onReissue} style={{ padding: '8px 14px' }}>
               <i className="fa-solid fa-rotate-right" style={{ marginRight: '6px' }}></i>
               Request Reissuance
             </button>

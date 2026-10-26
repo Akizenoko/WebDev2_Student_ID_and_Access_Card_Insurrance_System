@@ -1,5 +1,5 @@
-import React from 'react';
-import StatusStepper, { getStepIndex } from './StatusStepper';
+import StatusStepper from './StatusStepper';
+import { getStepIndex } from '../utils/status';
 
 const STEP_DETAILS = {
   submitted: {

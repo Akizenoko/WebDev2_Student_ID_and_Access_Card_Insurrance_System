@@ -115,7 +115,7 @@ function LoginPage({ onLoginSuccess, onSwitchToSignIn }) {
               <input
                 type="email"
                 className="form-input"
-                placeholder="e.g. your.email@gmail.com or @wmsu.edu.ph"
+                placeholder="name@wmsu.edu.ph"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required

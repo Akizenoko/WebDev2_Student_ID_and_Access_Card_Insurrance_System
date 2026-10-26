@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { api } from '../services/api';
 
 function AuthModal({ isOpen, onClose, onLoginSuccess }) {
-  if (!isOpen) return null;
-
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,6 +19,8 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  if (!isOpen) return null;
 
   const handleLogin = async (e) => {
     e.preventDefault();

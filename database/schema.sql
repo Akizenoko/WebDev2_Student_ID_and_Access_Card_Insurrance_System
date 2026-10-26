@@ -45,12 +45,13 @@ CREATE TABLE IF NOT EXISTS applications (
   assigned_to INT REFERENCES admin_profiles(id),
   photo_file_id INT REFERENCES uploaded_files(id),
   type VARCHAR(20) NOT NULL DEFAULT 'New ID'
-    CHECK (type IN ('New ID', 'Replacement')),
+    CHECK (type IN ('New ID', 'Access Card', 'Replacement', 'Renewal')),
   status VARCHAR(20) NOT NULL DEFAULT 'submitted'
     CHECK (status IN ('submitted', 'processing', 'ready', 'released', 'rejected')),
   remarks TEXT,
   submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS cards (
@@ -59,7 +60,7 @@ CREATE TABLE IF NOT EXISTS cards (
   application_id INT UNIQUE REFERENCES applications(id),
   card_number VARCHAR(40) UNIQUE NOT NULL,
   status VARCHAR(15) NOT NULL DEFAULT 'active'
-    CHECK (status IN ('active', 'lost', 'damaged')),
+    CHECK (status IN ('active', 'lost', 'damaged', 'expired')),
   issue_date DATE NOT NULL,
   valid_until DATE NOT NULL
 );

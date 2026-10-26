@@ -4,12 +4,8 @@ import '../style/navbar.css';
 
 function Navbar({
   currentUser,
-  onOpenApply,
-  onOpenReissue,
   onOpenAuth,
   onOpenProfile,
-  onOpenStatusModal,
-  onLogout,
   setActiveTab
 }) {
   const isStudent = currentUser?.role === 'student';
@@ -26,6 +22,11 @@ function Navbar({
     ? (studentProfile?.student_number || '2025-01190')
     : (adminProfile?.office || 'Registrar');
 
+  const photoPath = currentUser?.profile?.photo_url;
+  const avatarSrc = !isStudent
+    ? Arle
+    : (photoPath ? (photoPath.startsWith('/assets/Arle.png') ? Arle : photoPath) : Arle);
+
   return (
     <div className='navbar'>
       <div className='wmsulogo' style={{ cursor: 'pointer' }} onClick={() => setActiveTab('overview')}>
@@ -36,59 +37,19 @@ function Navbar({
         </div>
       </div>
 
-      <div className='selections'>
-        {isStudent && (
-          <div className='issuance'>
-            <button type="button" className='applyid' onClick={onOpenApply}>
-              <i className="fa-solid fa-id-card" style={{ marginRight: '6px' }}></i>
-              Apply for ID
-            </button>
-            <button type="button" className='reissueid' onClick={onOpenReissue}>
-              <i className="fa-solid fa-rotate-right" style={{ marginRight: '6px' }}></i>
-              Lost/Destroyed Reissue
-            </button>
-          </div>
-        )}
-      </div>
+      <div className='selections'></div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <div
-          className='profile'
-          style={{ cursor: 'pointer' }}
-          onClick={onOpenProfile || onOpenAuth}
-          title="Click to view profile & identification"
-        >
-          <img src={Arle} alt="Profile" />
-          <div>
-            <h3 style={{ fontSize: '0.95rem', margin: 0 }}>{displayName}</h3>
-            <h5 style={{ fontSize: '0.75rem', margin: 0, opacity: 0.85 }}>{subtitle} ({currentUser?.role?.toUpperCase() || 'STUDENT'})</h5>
-          </div>
+      <div
+        className='profile'
+        style={{ cursor: 'pointer' }}
+        onClick={onOpenProfile || onOpenAuth}
+        title="Click to view profile & identification"
+      >
+        <img src={avatarSrc} alt="Profile" style={{ objectFit: 'cover' }} />
+        <div>
+          <h3 style={{ fontSize: '0.95rem', margin: 0 }}>{displayName}</h3>
+          <h5 style={{ fontSize: '0.75rem', margin: 0, opacity: 0.85 }}>{subtitle} ({currentUser?.role?.toUpperCase() || 'STUDENT'})</h5>
         </div>
-
-        {onLogout && (
-          <button
-            type="button"
-            onClick={onLogout}
-            title="Sign out of account"
-            style={{
-              background: 'rgba(0,0,0,0.35)',
-              border: '1px solid rgba(255,255,255,0.25)',
-              color: '#ffffff',
-              borderRadius: '10px',
-              padding: '8px 12px',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'background 0.2s'
-            }}
-          >
-            <i className="fa-solid fa-arrow-right-from-bracket"></i>
-            <span>Log Out</span>
-          </button>
-        )}
       </div>
     </div>
   );

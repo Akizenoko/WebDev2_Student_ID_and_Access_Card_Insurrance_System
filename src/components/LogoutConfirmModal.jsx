@@ -1,5 +1,3 @@
-import React from 'react';
-
 function LogoutConfirmModal({ isOpen, onClose, onConfirm, currentUser }) {
   if (!isOpen) return null;
 

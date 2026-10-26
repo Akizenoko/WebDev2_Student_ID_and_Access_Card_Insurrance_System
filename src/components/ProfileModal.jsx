@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Arle from '../assets/Arle.png';
 import wmsulogo from '../assets/wmsulogo.png';
 import { api } from '../services/api';
@@ -49,6 +49,11 @@ function ProfileModal({
   const activeCard = Array.isArray(cards)
     ? cards.find((c) => c && c.status === 'active') || cards[0] || null
     : null;
+
+  const photoPath = currentUser?.profile?.photo_url || activeCard?.photo?.storage_path;
+  const avatarSrc = !isStudent
+    ? Arle
+    : (photoPath ? (photoPath.startsWith('/assets/Arle.png') ? Arle : photoPath) : Arle);
 
   const fullName = isStudent
     ? [profile?.first_name, profile?.middle_name, profile?.last_name].filter(Boolean).join(' ') || 'Student User'
@@ -140,7 +145,7 @@ function ProfileModal({
               }}
             >
               <img
-                src={Arle}
+                src={avatarSrc}
                 alt="Profile"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />

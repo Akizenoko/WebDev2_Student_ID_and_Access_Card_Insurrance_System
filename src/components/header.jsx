@@ -1,12 +1,9 @@
 import '../style/header.css';
 import '../style/navbar.css';
 import Arle from '../assets/Arle.png';
-import StatusStepper from './StatusStepper';
 
 function Header({
   currentUser,
-  onOpenApply,
-  onOpenReissue,
   onOpenAuth,
   onOpenProfile,
   onOpenStatusModal,
@@ -26,13 +23,16 @@ ${profile?.first_name || 'The'} ${profile?.middle_name || ''} ${profile?.last_na
     ? `${profile?.program || 'Computer Science'} - ${profile?.student_number || '2025-01190'}`
     : `Employee No: ${profile?.employee_no || 'EMP-2023-042'} - Admin Portal`;
 
-  const status = activeApplication?.status || (isStudent ? 'submitted' : 'processing');
+  const photoPath = currentUser?.profile?.photo_url || activeApplication?.photo?.storage_path;
+  const avatarSrc = !isStudent
+    ? Arle
+    : (photoPath ? (photoPath.startsWith('/assets/Arle.png') ? Arle : photoPath) : Arle);
 
   return (
     <div
       className='main'
       style={{
-        paddingTop: isStudent ? '32px' : '65px',
+        paddingTop: isStudent ? '55px' : '65px',
       }}
     >
       {/* Large Decorative Low-Opacity Black Text */}
@@ -58,17 +58,6 @@ ${profile?.first_name || 'The'} ${profile?.middle_name || ''} ${profile?.last_na
         {currentUser?.role === 'admin' ? 'ADMIN DASHBOARD' : 'DASHBOARD'}
       </div>
 
-      {/* Progress inside the Header at the TOP (Only for Student) */}
-      {isStudent && (
-        <div
-          className='headerProgressCard'
-          onClick={onOpenStatusModal}
-          title="Click to view detailed ID lifecycle & tracking modal"
-        >
-          <StatusStepper currentStatus={status} size="small" showLabels={true} />
-        </div>
-      )}
-
       {/* Header Profile Info and Action Buttons Row */}
       <div className='headerContentRow'>
         <div
@@ -77,7 +66,22 @@ ${profile?.first_name || 'The'} ${profile?.middle_name || ''} ${profile?.last_na
           style={{ cursor: 'pointer' }}
           title="Click to view profile & identification"
         >
-          <img src={Arle} alt="Profile" />
+          <img
+            src={avatarSrc}
+            alt="Profile"
+            style={{
+              width: '160px',
+              height: '160px',
+              minWidth: '160px',
+              minHeight: '160px',
+              maxWidth: '160px',
+              maxHeight: '160px',
+              borderRadius: '50%',
+              aspectRatio: '1 / 1',
+              flexShrink: 0,
+              objectFit: 'cover'
+            }}
+          />
           <div>
             <h1>{title}</h1>
             <p>{subtitle}</p>
@@ -86,16 +90,19 @@ ${profile?.first_name || 'The'} ${profile?.middle_name || ''} ${profile?.last_na
         
         <div className='issuance'>
           {isStudent ? (
-            <>
-              <button type="button" className='applyid' onClick={onOpenApply}>
-                <i className="fa-solid fa-plus" style={{ marginRight: '6px' }}></i>
-                Apply New ID
-              </button>
-              <button type="button" className='reissueid' onClick={onOpenReissue}>
-                <i className="fa-solid fa-rotate-right" style={{ marginRight: '6px' }}></i>
-                Lost/Destroyed Reissue
-              </button>
-            </>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {onOpenStatusModal && (
+                <button
+                  type="button"
+                  className='reissueid'
+                  onClick={onOpenStatusModal}
+                  style={{ width: 'auto', padding: '11px 20px', fontSize: '0.88rem' }}
+                >
+                  <i className="fa-solid fa-timeline" style={{ marginRight: '6px' }}></i>
+                  Track Progress
+                </button>
+              )}
+            </div>
           ) : (
             <div style={{ display: 'flex', gap: '10px' }}>
               <button

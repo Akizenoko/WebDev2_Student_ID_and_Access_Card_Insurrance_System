@@ -83,22 +83,18 @@ export const api = {
     return result;
   },
 
-  updateApplicationStatus: async (id, status, changed_by) => {
-  const saved = JSON.parse(localStorage.getItem('wmsu_auth_user') || '{}');
-  const res = await fetch(`/api/applications/${id}/status`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${saved.token}`,
-    },
-    body: JSON.stringify({ status, changed_by }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'Request failed');
-  }
-  return res.json();
-},
+  updateApplicationStatus: async (id, status, remarks) => {
+    const res = await fetch(`${API_BASE}/applications/${id}/status`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status, remarks }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Request failed');
+    }
+    return res.json();
+  },
 
   async assignApplication(id, assigned_to) {
     const res = await fetch(`${API_BASE}/applications/${id}/assign`, {
@@ -108,6 +104,16 @@ export const api = {
     });
     const result = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(result.message || 'Failed to assign application');
+    return result;
+  },
+
+  async deleteApplication(id) {
+    const res = await fetch(`${API_BASE}/applications/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.message || 'Failed to delete application');
     return result;
   },
 

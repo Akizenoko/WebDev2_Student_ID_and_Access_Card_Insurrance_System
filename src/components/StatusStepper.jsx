@@ -1,20 +1,5 @@
-import React from 'react';
-
-const STEPS = [
-  { step: 1, key: 'submitted', title: 'Submitted', subtitle: 'Application & Docs Received' },
-  { step: 2, key: 'processing', title: 'Processing', subtitle: 'Registrar Review & RFID Encoding' },
-  { step: 3, key: 'ready', title: 'Ready for Pickup', subtitle: 'Available at Window 4' },
-  { step: 4, key: 'released', title: 'Released', subtitle: 'Card Claimed by Student' },
-];
-
-export function getStepIndex(status) {
-  const s = status?.toLowerCase();
-  if (s === 'submitted') return 0;
-  if (s === 'processing') return 1;
-  if (s === 'ready') return 2;
-  if (s === 'released') return 3;
-  return -1;
-}
+import { Fragment } from 'react';
+import { STEPS, getStepIndex } from '../utils/status';
 
 function StatusStepper({ currentStatus, size = 'normal', showLabels = true, onStepClick }) {
   const currentIdx = getStepIndex(currentStatus);
@@ -36,6 +21,14 @@ function StatusStepper({ currentStatus, size = 'normal', showLabels = true, onSt
       lineHeight: '4px',
       labelFontSize: '0.78rem',
       gap: '8px',
+      showSubtitles: false,
+    },
+    medium: {
+      circleSize: 46,
+      fontSize: '1.08rem',
+      lineHeight: '5px',
+      labelFontSize: '0.86rem',
+      gap: '10px',
       showSubtitles: false,
     },
     large: {
@@ -84,7 +77,7 @@ function StatusStepper({ currentStatus, size = 'normal', showLabels = true, onSt
           const isNextCompleted = !isRejected && currentIdx > idx;
 
           return (
-            <React.Fragment key={s.step}>
+            <Fragment key={s.step}>
               {/* Step Circle with Number inside */}
               <div
                 onClick={() => onStepClick?.(s, idx)}
@@ -157,7 +150,7 @@ function StatusStepper({ currentStatus, size = 'normal', showLabels = true, onSt
                   }}
                 />
               )}
-            </React.Fragment>
+            </Fragment>
           );
         })}
       </div>
@@ -168,7 +161,7 @@ function StatusStepper({ currentStatus, size = 'normal', showLabels = true, onSt
           display: 'flex',
           justifyContent: 'space-between',
           width: '100%',
-          marginTop: size === 'large' ? '10px' : '5px',
+          marginTop: size === 'large' ? '10px' : (size === 'medium' ? '8px' : '5px'),
           textAlign: 'center'
         }}>
           {STEPS.map((s, idx) => {
@@ -186,7 +179,7 @@ function StatusStepper({ currentStatus, size = 'normal', showLabels = true, onSt
               fontWeight = 700;
             }
 
-            const labelWidth = size === 'small' ? 76 : (size === 'large' ? 140 : 90);
+            const labelWidth = size === 'small' ? 76 : (size === 'large' ? 140 : (size === 'medium' ? 115 : 90));
             const edgeOffset = `${(config.circleSize - labelWidth) / 2}px`;
 
             return (

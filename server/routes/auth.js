@@ -19,12 +19,29 @@ async function getFullUser(userId) {
     const table = user.role === 'student' ? 'student_profiles' : 'admin_profiles';
     const p = await pool.query(`SELECT * FROM ${table} WHERE user_id = $1`, [user.id]);
 
+    let photoUrl = '/assets/Arle.png';
+    if (user.role === 'student' && p.rows[0]) {
+        const photoRes = await pool.query(`
+            SELECT uf.storage_path
+            FROM applications a
+            JOIN uploaded_files uf ON uf.id = a.photo_file_id
+            WHERE a.student_id = $1
+            ORDER BY a.submitted_at DESC
+            LIMIT 1
+        `, [p.rows[0].id]);
+        if (photoRes.rows[0]) {
+            photoUrl = photoRes.rows[0].storage_path;
+        }
+    } else if (user.role === 'admin') {
+        photoUrl = '/assets/Arle.png';
+    }
+
     return {
         id: user.id,
         email: user.email,
         role: user.role,
         isActive: user.is_active,
-        profile: p.rows[0] || null,
+        profile: p.rows[0] ? { ...p.rows[0], photo_url: photoUrl } : null,
     };
 }
 
@@ -130,6 +147,48 @@ router.get('/me', requireAuth, async (req, res) => {
     const user = await getFullUser(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
+});
+
+// GET /api/auth/users (admin only)
+router.get('/users', requireAuth, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+    }
+    try {
+        const { rows } = await pool.query(`
+            SELECT u.id, u.email, u.role, u.is_active, u.created_at,
+                   sp.id AS student_profile_id, sp.student_number, sp.first_name, sp.middle_name, sp.last_name, sp.program, sp.year_level,
+                   ap.id AS admin_profile_id, ap.employee_no, ap.office
+            FROM users u
+            LEFT JOIN student_profiles sp ON sp.user_id = u.id
+            LEFT JOIN admin_profiles ap   ON ap.user_id = u.id
+            ORDER BY u.id ASC
+        `);
+        res.json(rows.map(r => ({
+            id: r.id,
+            email: r.email,
+            role: r.role,
+            isActive: r.is_active,
+            createdAt: r.created_at,
+            profile: r.role === 'student' ? {
+                id: r.student_profile_id,
+                student_number: r.student_number,
+                first_name: r.first_name,
+                middle_name: r.middle_name,
+                last_name: r.last_name,
+                program: r.program,
+                year_level: r.year_level,
+            } : {
+                id: r.admin_profile_id,
+                employee_no: r.employee_no,
+                office: r.office,
+                photo_url: '/assets/Arle.png',
+            }
+        })));
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
 });
 
 export default router;

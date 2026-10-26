@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from './components/navbar.jsx';
 import Header from './components/header.jsx';
 import StudentDashboard from './components/StudentDashboard.jsx';
@@ -14,6 +14,7 @@ import LogoutConfirmModal from './components/LogoutConfirmModal.jsx';
 import LoginPage from './pages/login.jsx';
 import SignInPage from './pages/sign_in.jsx';
 import { api } from './services/api.js';
+import Arle from './assets/Arle.png';
 
 import './style/App.css';
 import './style/navbar.css';
@@ -60,7 +61,9 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('overview');
   const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [applyType, setApplyType] = useState('New ID');
   const [isReissueOpen, setIsReissueOpen] = useState(false);
+  const [reissueReason, setReissueReason] = useState('Lost physical ID card');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
@@ -70,15 +73,32 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [userApplications, setUserApplications] = useState([]);
+  const [userCards, setUserCards] = useState([]);
   const [statusTrackApp, setStatusTrackApp] = useState(null);
 
+  const handleOpenApply = (type = 'New ID') => {
+    setApplyType(typeof type === 'string' ? type : 'New ID');
+    setIsApplyOpen(true);
+  };
+
+  const handleOpenReissue = (reason = 'Lost physical ID card') => {
+    setReissueReason(typeof reason === 'string' ? reason : 'Lost physical ID card');
+    setIsReissueOpen(true);
+  };
+
   useEffect(() => {
-    async function loadUserApps() {
+    async function loadUserData() {
       if (!currentUser) return;
       try {
-         const apps = await api.getApplications();
+        const studentId = currentUser.role === 'student' ? (currentUser.profile?.id || 1) : null;
+        const [apps, cardsData] = await Promise.all([
+          api.getApplications(),
+          studentId ? api.getCards({ student_id: studentId }) : Promise.resolve([]),
+        ]);
         const safeApps = Array.isArray(apps) ? apps : [];
+        const safeCards = Array.isArray(cardsData) ? cardsData : [];
         setUserApplications(safeApps);
+        setUserCards(safeCards);
         if (safeApps.length > 0) {
           setStatusTrackApp(prev => {
             if (prev) {
@@ -91,12 +111,13 @@ function App() {
           setStatusTrackApp(null);
         }
       } catch (err) {
-        console.error('Failed to load applications for status', err);
+        console.error('Failed to load user data for status', err);
         setUserApplications([]);
+        setUserCards([]);
         setStatusTrackApp(null);
       }
     }
-    loadUserApps();
+    loadUserData();
   }, [currentUser, refreshKey]);
 
   const handleLoginSuccess = (user) => {
@@ -163,24 +184,29 @@ function App() {
     );
   }
 
+  const latestPhoto = currentUser?.role === 'admin'
+    ? Arle
+    : ([...userApplications].reverse().find(a => a.photo?.storage_path)?.photo?.storage_path || currentUser?.profile?.photo_url || Arle);
+  const effectiveUser = currentUser ? {
+    ...currentUser,
+    profile: currentUser.profile ? {
+      ...currentUser.profile,
+      photo_url: currentUser.role === 'admin' ? Arle : (latestPhoto || currentUser.profile.photo_url || Arle),
+    } : null,
+  } : null;
+
   return (
     <div style={{ minHeight: '100vh', background: 'rgb(36, 35, 36)', color: '#ffffff' }}>
       <Navbar
-        currentUser={currentUser}
-        onOpenApply={() => setIsApplyOpen(true)}
-        onOpenReissue={() => setIsReissueOpen(true)}
+        currentUser={effectiveUser}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenProfile={() => setIsProfileOpen(true)}
-        onOpenStatusModal={() => setIsStatusModalOpen(true)}
-        onLogout={() => setIsLogoutConfirmOpen(true)}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
 
       <Header
-        currentUser={currentUser}
-        onOpenApply={() => setIsApplyOpen(true)}
-        onOpenReissue={() => setIsReissueOpen(true)}
+        currentUser={effectiveUser}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenStatusModal={() => setIsStatusModalOpen(true)}
@@ -191,15 +217,16 @@ function App() {
         {currentUser?.role === 'admin' ? (
           <AdminDashboard
             key={refreshKey}
-            currentUser={currentUser}
+            currentUser={effectiveUser}
             onSelectApp={handleSelectApp}
+            onViewCard={(card) => setViewingCard(card)}
           />
         ) : (
           <StudentDashboard
             key={refreshKey}
-            currentUser={currentUser}
-            onOpenApply={() => setIsApplyOpen(true)}
-            onOpenReissue={() => setIsReissueOpen(true)}
+            currentUser={effectiveUser}
+            onOpenApply={(type) => handleOpenApply(type)}
+            onOpenReissue={handleOpenReissue}
             onSelectApp={handleSelectApp}
             onViewCard={(card) => setViewingCard(card)}
             onOpenStatusModal={handleOpenStatusForApp}
@@ -211,7 +238,7 @@ function App() {
       <ProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
-        currentUser={currentUser}
+        currentUser={effectiveUser}
         onOpenSwitchUser={() => {
           setIsProfileOpen(false);
           setIsAuthOpen(true);
@@ -234,23 +261,29 @@ function App() {
           setIsLogoutConfirmOpen(false);
           handleLogout();
         }}
-        currentUser={currentUser}
+        currentUser={effectiveUser}
       />
 
       {/* Issuance Application Modal */}
       <ApplyModal
         isOpen={isApplyOpen}
         onClose={() => setIsApplyOpen(false)}
-        currentUser={currentUser}
+        currentUser={effectiveUser}
         onSuccess={handleRefresh}
+        applications={userApplications}
+        cards={userCards}
+        initialType={applyType}
       />
 
-      {/* Lost / Destroyed Reissuance Modal */}
+      {/* Lost / Destroyed Reissuance & Renewal Modal */}
       <ReissueModal
         isOpen={isReissueOpen}
         onClose={() => setIsReissueOpen(false)}
-        currentUser={currentUser}
+        currentUser={effectiveUser}
         onSuccess={handleRefresh}
+        initialReason={reissueReason}
+        applications={userApplications}
+        cards={userCards}
       />
 
       {/* Application Detail Review Modal */}
@@ -258,7 +291,11 @@ function App() {
         isOpen={Boolean(selectedApp)}
         onClose={() => setSelectedApp(null)}
         application={selectedApp}
-        currentUser={currentUser}
+        currentUser={effectiveUser}
+        onViewCard={(card) => {
+          setSelectedApp(null);
+          setViewingCard(card);
+        }}
         onUpdate={() => {
           handleRefresh();
           if (selectedApp) {
