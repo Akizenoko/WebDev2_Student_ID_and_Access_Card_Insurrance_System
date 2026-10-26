@@ -98,10 +98,15 @@ router.get('/', async (req, res) => {
     const conditions = [];
     const values = [];
 
-    if (student_id) {
+        if (req.user.role === 'student') {
+      // students ALWAYS see only their own, no matter what they send
+      values.push(req.user.profileId);
+      conditions.push(`a.student_id = $${values.length}`);
+    } else if (student_id) {
       values.push(Number(student_id));
       conditions.push(`a.student_id = $${values.length}`);
     }
+
     if (status && status !== 'all') {
       values.push(status.toLowerCase());
       conditions.push(`LOWER(a.status) = $${values.length}`);
@@ -143,19 +148,13 @@ router.get('/:id', async (req, res) => {
       `${FULL_APPLICATION_QUERY} WHERE a.id = $1`,
       [Number(req.params.id)]
     );
-    if (!rows.length) return res.status(404).json({ message: 'Application not found' });
+   const row = rows[0];
 
-    // fetch status history separately
-    const hist = await pool.query(
-      `SELECT sh.*, u.email AS changer_email, u.role AS changer_role
-       FROM status_history sh
-       LEFT JOIN users u ON u.id = sh.changed_by
-       WHERE sh.application_id = $1
-       ORDER BY sh.changed_at ASC`,
-      [Number(req.params.id)]
-    );
-
-    res.json({ ...shapeApplication(rows[0]), history: hist.rows });
+    // 404 for both "doesn't exist" and "not yours"
+    if (!row || (req.user.role === 'student' && row.student_id !== req.user.profileId)) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+    res.json(shapeApplication(row));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -163,19 +162,53 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/applications
+// POST /api/applications
 router.post('/', async (req, res) => {
-  const { student_id, photo_file_id, type = 'New ID', user_id } = req.body;
+  const { photo_file_id } = req.body;
+  const isStudent = req.user.role === 'student';
+  const student_id = isStudent ? req.user.profileId : req.body.student_id;
+  const type = isStudent ? 'New ID' : (req.body.type || 'New ID');
   if (!student_id) return res.status(400).json({ message: 'student_id is required' });
+
+  // FIX 11: a New ID needs a photo (checked first, before touching the DB)
+  if (type === 'New ID' && !photo_file_id) {
+    return res.status(400).json({ message: 'A photo is required for a New ID application' });
+  }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // verify student exists
-    const sp = await client.query('SELECT id FROM student_profiles WHERE id = $1', [Number(student_id)]);
+    // verify student exists; FOR UPDATE locks the row so two simultaneous
+    // requests from the same student can't both pass the duplicate check
+    const sp = await client.query(
+      'SELECT id FROM student_profiles WHERE id = $1 FOR UPDATE',
+      [Number(student_id)]
+    );
     if (!sp.rows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Student profile not found' });
+    }
+
+    // FIX 10: only New ID is blocked, so Replacement/reissuance is unaffected
+    if (type === 'New ID') {
+      const { rows } = await client.query(
+        `SELECT
+           EXISTS (SELECT 1 FROM applications WHERE student_id = $1) AS has_app,
+           EXISTS (SELECT 1 FROM cards        WHERE student_id = $1) AS has_card`,
+        [Number(student_id)]
+      );
+      if (rows[0].has_app || rows[0].has_card) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ message: 'You already have an ID application or card' });
+      }
+    }
+
+    // photo must exist and (for students) belong to the caller
+    const f = await client.query('SELECT uploaded_by FROM uploaded_files WHERE id = $1', [Number(photo_file_id)]);
+    if (!f.rows.length || (isStudent && f.rows[0].uploaded_by !== req.user.id)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'Invalid photo' });
     }
 
     // get default admin to assign to
@@ -184,23 +217,19 @@ router.post('/', async (req, res) => {
 
     const year = new Date().getFullYear();
 
-    // insert application (app_no generated after we get the id)
     const appRes = await client.query(
       `INSERT INTO applications (application_no, student_id, assigned_to, photo_file_id, type, status)
        VALUES ('TEMP', $1, $2, $3, $4, 'submitted') RETURNING id`,
-      [Number(student_id), assignedTo, photo_file_id ? Number(photo_file_id) : null, type]
+      [Number(student_id), assignedTo, Number(photo_file_id), type]
     );
     const appId = appRes.rows[0].id;
     const appNo = `APP-${year}-${String(appId).padStart(4, '0')}`;
-
     await client.query('UPDATE applications SET application_no = $1 WHERE id = $2', [appNo, appId]);
 
-    // record initial status history
-    const changedBy = Number(user_id) || sp.rows[0].id;
     await client.query(
       `INSERT INTO status_history (application_id, from_status, to_status, changed_by)
        VALUES ($1, NULL, 'submitted', $2)`,
-      [appId, changedBy]
+      [appId, req.user.id]
     );
 
     await client.query('COMMIT');
@@ -217,20 +246,43 @@ router.post('/', async (req, res) => {
 });
 
 // PATCH /api/applications/:id/status  (admin only)
+const STATUSES = ['submitted', 'processing', 'ready', 'released', 'rejected'];
+const ALLOWED_NEXT = {
+  submitted:  ['processing', 'rejected'],
+  processing: ['ready', 'rejected'],
+  ready:      ['released', 'rejected'],
+  released:   [],
+  rejected:   [],
+};
+
 router.patch('/:id/status', requireRole('admin'), async (req, res) => {
-  const { status, changed_by } = req.body;
+  const { status } = req.body;
   const appId = Number(req.params.id);
+
+  if (!Number.isInteger(appId)) {
+    return res.status(400).json({ message: 'Invalid application id' });
+  }
+  if (!STATUSES.includes(status)) {
+    return res.status(400).json({ message: 'Invalid status' });
+  }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const appRes = await client.query('SELECT * FROM applications WHERE id = $1', [appId]);
+    const appRes = await client.query(
+      'SELECT * FROM applications WHERE id = $1 FOR UPDATE', [appId]
+    );
     if (!appRes.rows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Application not found' });
     }
     const oldStatus = appRes.rows[0].status;
+
+    if (!ALLOWED_NEXT[oldStatus]?.includes(status)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ message: `Cannot move from ${oldStatus} to ${status}` });
+    }
 
     await client.query(
       'UPDATE applications SET status = $1, updated_at = NOW() WHERE id = $2',
@@ -240,7 +292,7 @@ router.patch('/:id/status', requireRole('admin'), async (req, res) => {
     await client.query(
       `INSERT INTO status_history (application_id, from_status, to_status, changed_by)
        VALUES ($1, $2, $3, $4)`,
-      [appId, oldStatus, status, Number(changed_by) || req.user.id]
+      [appId, oldStatus, status, req.user.id]
     );
 
     // auto-create card when released
@@ -285,6 +337,9 @@ router.patch('/:id/status', requireRole('admin'), async (req, res) => {
 router.patch('/:id/assign', requireRole('admin'), async (req, res) => {
   const { assigned_to } = req.body;
   const appId = Number(req.params.id);
+    if (!['submitted', 'processing', 'ready', 'released', 'rejected'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid status' });
+  }
   try {
     const result = await pool.query(
       'UPDATE applications SET assigned_to = $1, updated_at = NOW() WHERE id = $2 RETURNING id',

@@ -16,7 +16,9 @@ router.get('/', async (req, res) => {
        LEFT JOIN cards c              ON c.id  = rr.original_card_id
        LEFT JOIN applications a       ON a.id  = rr.application_id
        LEFT JOIN student_profiles sp  ON sp.id = a.student_id
-       ORDER BY rr.created_at DESC`
+       ${req.user.role === 'student' ? 'WHERE a.student_id = $1' : ''}
+       ORDER BY rr.created_at DESC`,
+      req.user.role === 'student' ? [req.user.profileId] : []
     );
     res.json(rows.map(r => ({
       id:               r.id,
@@ -50,7 +52,9 @@ router.get('/', async (req, res) => {
 
 // POST /api/reissuance
 router.post('/', async (req, res) => {
-  const { student_id, original_card_id, reason, fee_amount = 150.00, photo_file_id, user_id } = req.body;
+    const { original_card_id, reason, photo_file_id } = req.body;
+  const fee_amount = 150.00; 
+  const student_id = req.user.role === 'student' ? req.user.profileId : req.body.student_id;
 
   if (!student_id || !original_card_id || !reason) {
     return res.status(400).json({ message: 'student_id, original_card_id, and reason are required' });
@@ -61,11 +65,10 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
 
     // verify card exists
-    const cardRes = await client.query('SELECT * FROM cards WHERE id = $1', [Number(original_card_id)]);
-    if (!cardRes.rows.length) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ message: 'Original card not found' });
-    }
+        const cardRes = await client.query(
+      'SELECT * FROM cards WHERE id = $1 AND student_id = $2',
+      [Number(original_card_id), Number(student_id)]
+    );
 
     // mark old card as lost or damaged
     const newCardStatus = reason.toLowerCase().includes('lost') || reason.toLowerCase().includes('stolen')

@@ -10,7 +10,10 @@ router.get('/', async (req, res) => {
     const conditions = [];
     const values = [];
 
-    if (student_id) {
+        if (req.user.role === 'student') {
+      values.push(req.user.profileId);
+      conditions.push(`c.student_id = $${values.length}`);
+    } else if (student_id) {
       values.push(Number(student_id));
       conditions.push(`c.student_id = $${values.length}`);
     }
@@ -79,9 +82,10 @@ router.get('/:id', async (req, res) => {
        WHERE c.id = $1`,
       [Number(req.params.id)]
     );
-    if (!rows.length) return res.status(404).json({ message: 'Card not found' });
-
-    const r = rows[0];
+        const r = rows[0];
+    if (!r || (req.user.role === 'student' && r.student_id !== req.user.profileId)) {
+      return res.status(404).json({ message: 'Card not found' });
+    }
     res.json({
       id:             r.id,
       card_number:    r.card_number,

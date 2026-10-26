@@ -57,12 +57,15 @@ router.post('/upload', async (req, res) => {
 // GET /api/files/:id
 router.get('/:id', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM uploaded_files WHERE id = $1',
-      [Number(req.params.id)]
-    );
-    if (!rows.length) return res.status(404).json({ message: 'File not found' });
-    res.json(rows[0]);
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(404).json({ message: 'File not found' });
+
+    const { rows } = await pool.query('SELECT * FROM uploaded_files WHERE id = $1', [id]);
+    const file = rows[0];
+    if (!file || (req.user.role === 'student' && file.uploaded_by !== req.user.id)) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    res.json(file);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

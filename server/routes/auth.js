@@ -32,6 +32,11 @@ async function getFullUser(userId) {
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+
+                if (typeof email !== 'string' || typeof password !== 'string') {
+            return res.status(400).json({ message: 'Email and password must be text' });
+        }
+        
         if (!email || !password) {
             return res.status(400).json({ message: 'Email and password are required' });
         }
@@ -56,6 +61,16 @@ router.post('/login', async (req, res) => {
 
 router.post('/register', async (req, res) => {
     const { email, password, student_number, first_name, middle_name, last_name, program, year_level } = req.body;
+
+        const required = [email, password, student_number, first_name, last_name];
+    const optional = [middle_name, program, year_level];
+    if (!required.every(v => typeof v === 'string') ||
+        optional.some(v => v != null && typeof v !== 'string')) {
+        return res.status(400).json({ message: 'All fields must be text' });
+    }
+    if (password.length > 72) {
+        return res.status(400).json({ message: 'Password is too long (max 72 characters)' });
+    }
 
     if (!email || !password || !student_number || !first_name || !last_name) {
         return res.status(400).json({ message: 'All required fields must be provided' });

@@ -76,10 +76,7 @@ function App() {
     async function loadUserApps() {
       if (!currentUser) return;
       try {
-        const params = currentUser.role === 'student'
-          ? { student_id: currentUser.profile?.id || 1 }
-          : {};
-        const apps = await api.getApplications(params);
+         const apps = await api.getApplications();
         const safeApps = Array.isArray(apps) ? apps : [];
         setUserApplications(safeApps);
         if (safeApps.length > 0) {
