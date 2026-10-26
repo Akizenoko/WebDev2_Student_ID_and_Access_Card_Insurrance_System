@@ -248,7 +248,7 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
         </div>
       </div>
     </div>
-  );
+  ); 
 }
 
 export default ApplicationDetailModal;
