@@ -6,7 +6,7 @@ function LogoutConfirmModal({ isOpen, onClose, onConfirm, currentUser }) {
   const isStudent = currentUser?.role === 'student';
   const profile = currentUser?.profile;
   const displayName = isStudent
-    ? [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Student'
+    ? [profile?.first_name, profile?.middle_name, profile?.last_name].filter(Boolean).join(' ') || 'Student'
     : 'Admin Officer';
 
   return (
