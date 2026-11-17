@@ -1,13 +1,34 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 
+import { sendOtpEmail } from '../mailer.js';
 const router = express.Router();
+
+const otpSecret = () => process.env.JWT_SECRET + '-otp';
 
 const signToken = (user) =>
     jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '2h' });
+
+async function startOtp(userId, email) {
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  await pool.query('UPDATE email_otps SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL', [userId]);
+  await pool.query(
+    `INSERT INTO email_otps (user_id, code_hash, expires_at)
+     VALUES ($1, $2, NOW() + INTERVAL '5 minutes')`,
+    [userId, await bcrypt.hash(code, 10)]
+  );
+  if (process.env.NODE_ENV !== 'production') console.log(`[DEV] OTP for ${email}: ${code}`);
+  await sendOtpEmail(email, code);
+  return {
+    otpRequired: true,
+    challenge: jwt.sign({ uid: userId, purpose: 'otp' }, otpSecret(), { expiresIn: '10m' }),
+    email: email.replace(/^(.).*(@.*)$/, '$1***$2'),
+  };
+}
 
 async function getFullUser(userId) {
     const { rows } = await pool.query(
@@ -45,6 +66,38 @@ async function getFullUser(userId) {
     };
 }
 
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { challenge, code } = req.body;
+    if (typeof challenge !== 'string' || typeof code !== 'string' || !/^\d{6}$/.test(code)) {
+      return res.status(400).json({ message: 'Enter the 6-digit code' });
+    }
+    let payload;
+    try { payload = jwt.verify(challenge, otpSecret()); }
+    catch { return res.status(401).json({ message: 'Verification expired. Please log in again.' }); }
+    if (payload.purpose !== 'otp') return res.status(401).json({ message: 'Invalid request' });
+
+    const { rows } = await pool.query(
+      `SELECT * FROM email_otps
+       WHERE user_id = $1 AND used_at IS NULL AND expires_at > NOW()
+       ORDER BY id DESC LIMIT 1`, [payload.uid]);
+    const otp = rows[0];
+    if (!otp) return res.status(401).json({ message: 'Code expired. Please log in again.' });
+    if (otp.attempts >= 5) {
+      await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = $1', [otp.id]);
+      return res.status(429).json({ message: 'Too many attempts. Please log in again.' });
+    }
+    if (!(await bcrypt.compare(code, otp.code_hash))) {
+      await pool.query('UPDATE email_otps SET attempts = attempts + 1 WHERE id = $1', [otp.id]);
+      return res.status(401).json({ message: 'Incorrect code' });
+    }
+    await pool.query('UPDATE email_otps SET used_at = NOW() WHERE id = $1', [otp.id]);
+
+    const u = await pool.query('SELECT id, role, is_active FROM users WHERE id = $1', [payload.uid]);
+    if (!u.rows[0]?.is_active) return res.status(403).json({ message: 'Account is deactivated' });
+    res.json({ ...(await getFullUser(u.rows[0].id)), token: signToken(u.rows[0]) });
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
 
 router.post('/login', async (req, res) => {
     try {
@@ -68,8 +121,7 @@ router.post('/login', async (req, res) => {
         if (!valid) return res.status(401).json({ message: 'Invalid email or password' });
         if (!user.is_active) return res.status(403).json({ message: 'Account is deactivated' });
 
-        const full = await getFullUser(user.id);
-        res.json({ ...full, token: signToken(user) });
+        res.json({ ...(await getFullUser(user.id)), token: signToken(user) });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });
@@ -129,8 +181,7 @@ if (cleanMiddle && cleanMiddle.length > 100) {
         );
         await client.query('COMMIT');
 
-        const full = await getFullUser(u.rows[0].id);
-        res.status(201).json({ ...full, token: signToken(u.rows[0]) });
+        res.status(201).json(await startOtp(u.rows[0].id, cleanEmail));
     } catch (err) {
         await client.query('ROLLBACK');
         if (err.code === '23505') {     //this is unique violations if the user exists then it will like basta di pwede ganun logic na yun

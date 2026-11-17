@@ -43,3 +43,14 @@ run server
 
 then start the server for react 
 "npm run dev"
+
+
+
+FOR OTP 
+
+install 
+npm install nodemailer
+
+add this to your server .env
+EMAIL_USER=wmsuid@gmail.com
+EMAIL_APP_PASSWORD=hoisfpdzihpccrbl
