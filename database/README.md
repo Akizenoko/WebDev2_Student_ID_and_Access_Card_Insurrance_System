@@ -54,3 +54,6 @@ npm install nodemailer
 add this to your server .env
 EMAIL_USER=wmsuid@gmail.com
 EMAIL_APP_PASSWORD=hoisfpdzihpccrbl
+
+also run this again for the db 
+psql -U postgres -d student_id_db -f database/schema.sql
