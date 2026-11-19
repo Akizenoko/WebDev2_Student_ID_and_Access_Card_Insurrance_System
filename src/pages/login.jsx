@@ -2,25 +2,26 @@ import { useState } from 'react';
 import { api } from '../services/api';
 import wmsulogo from '../assets/wmsulogo.png';
 
+
 function LoginPage({ onLoginSuccess, onSwitchToSignIn }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      setLoading(true);
-      const user = await api.login(email, password);
-      setLoading(false);
-      onLoginSuccess(user);
-    } catch (err) {
-      setError(err.message || 'Invalid email or password');
-      setLoading(false);
-    }
-  };
+ const handleLogin = async (e) => {
+  e.preventDefault();
+  setError('');
+  try {
+    setLoading(true);
+    const user = await api.login(email, password);
+    onLoginSuccess(user);
+  } catch (err) {
+    setError(err.message || 'Invalid email or password');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div style={{
@@ -90,96 +91,104 @@ function LoginPage({ onLoginSuccess, onSwitchToSignIn }) {
         </div>
 
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+
+
+
           
-          {error && (
-            <div style={{
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              color: '#fca5a5',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <i className="fa-solid fa-circle-exclamation"></i>
-              <span>{error}</span>
-            </div>
-          )}
+              {error && (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#fca5a5',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <i className="fa-solid fa-circle-exclamation"></i>
+                  <span>{error}</span>
+                </div>
+              )}
 
-          {/* Form */}
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <input
-                type="email"
-                className="form-input"
-                placeholder="name@wmsu.edu.ph"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoFocus
-              />
-            </div>
+              {/* Form */}
+              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="name@wmsu.edu.ph"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
 
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder="Enter password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-              />
-            </div>
+                <div className="form-group">
+                  <label className="form-label">Password</label>
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="Enter password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
 
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={loading}
-              style={{ marginTop: '6px', height: '46px', fontSize: '1rem' }}
-            >
-              <i className="fa-solid fa-arrow-right-to-bracket"></i>
-              {loading ? 'Authenticating...' : 'Sign In'}
-            </button>
-          </form>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={loading}
+                  style={{ marginTop: '6px', height: '46px', fontSize: '1rem' }}
+                >
+                  <i className="fa-solid fa-arrow-right-to-bracket"></i>
+                  {loading ? 'Authenticating...' : 'Sign In'}
+                </button>
+              </form>
 
-          {/* Switch to Sign In / Sign Up */}
-          <div style={{
-            textAlign: 'center',
-            paddingTop: '16px',
-            borderTop: '1px solid #333235',
-            fontSize: '0.88rem',
-            color: '#9ca3af'
-          }}>
-            Don't have an account yet?{' '}
-            <button
-              type="button"
-              onClick={onSwitchToSignIn}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#f87171',
-                fontWeight: 700,
-                cursor: 'pointer',
-                textDecoration: 'underline'
-              }}
-            >
-              Sign In / Register here
-            </button>
-          </div>
-
+              {/* Switch to Sign In / Sign Up */}
+              <div style={{
+                textAlign: 'center',
+                paddingTop: '16px',
+                borderTop: '1px solid #333235',
+                fontSize: '0.88rem',
+                color: '#9ca3af'
+              }}>
+                Don't have an account yet?{' '}
+                <button
+                  type="button"
+                  onClick={onSwitchToSignIn}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#f87171',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Sign In / Register here
+                </button>
+              </div>
+          
         </div>
+
       </div>
 
       {/* Footer Info */}
       <div style={{ marginTop: '24px', fontSize: '0.8rem', color: '#6b7280', textAlign: 'center' }}>
         WMSU ID & Access Card Management System &bull; Office of the Registrar
       </div>
+
+
     </div>
   );
+
 }
 
 export default LoginPage;

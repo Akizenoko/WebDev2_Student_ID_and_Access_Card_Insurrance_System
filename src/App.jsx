@@ -121,6 +121,7 @@ function App() {
   }, [currentUser, refreshKey]);
 
   const handleLoginSuccess = (user) => {
+    
     setCurrentUser(user);
     try {
       localStorage.setItem('wmsu_auth_user', JSON.stringify(user));
@@ -236,6 +237,7 @@ function App() {
         onOpenProfile={() => setIsProfileOpen(true)}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        refreshKey={refreshKey}
       />
 
       <Header
@@ -338,11 +340,12 @@ function App() {
       />
 
       {/* Digital ID Card Viewer Modal */}
-      <CardRecordModal
-        isOpen={Boolean(viewingCard)}
-        onClose={() => setViewingCard(null)}
-        card={viewingCard}
-      />
+      <CardRecordModal 
+      isOpen={Boolean(viewingCard)} 
+      onClose={() => setViewingCard(null)}
+        card={viewingCard} 
+        currentUser={effectiveUser} 
+        onUpdate={handleRefresh} />
 
       {/* Switch User / Auth Modal */}
       <AuthModal

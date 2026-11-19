@@ -16,7 +16,25 @@ const authHeaders = (extra = {}) => {
   };
 };
 
+
+
+
 export const api = {
+  async verifyOtp(challenge, code) {
+  const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challenge, code }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.message || 'Verification failed');
+    err.status = res.status;
+    throw err;
+  }
+  return data;   // user object with role, profile and token
+},
+
   async login(email, password) {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
@@ -25,6 +43,7 @@ export const api = {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.message || 'Login failed');
+     localStorage.setItem('token', data.token);
     return data;
   },
 

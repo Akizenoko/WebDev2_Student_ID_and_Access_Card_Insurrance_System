@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../services/api';
+import OtpStep from '../components/OtpStep';
 import wmsulogo from '../assets/wmsulogo.png';
 
 function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
@@ -17,6 +18,7 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [otp, setOtp] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -34,7 +36,7 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
 
     try {
       setLoading(true);
-      const user = await api.register({
+      const data = await api.register({
         email: formData.email,
         password: formData.password,
         student_number: formData.student_number,
@@ -44,8 +46,9 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
         program: formData.program,
         year_level: formData.year_level,
       });
-      setLoading(false);
-      onLoginSuccess(user);
+
+      setOtp(data);
+
     } catch (err) {
       setError(err.message || 'Registration failed');
       setLoading(false);
@@ -129,197 +132,209 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
         </div>
 
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          
-          {error && (
-            <div style={{
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              color: '#fca5a5',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <i className="fa-solid fa-circle-exclamation"></i>
-              <span>{error}</span>
-            </div>
-          )}
 
-          <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          
-            
+          {otp ? (
+            <OtpStep
+              challenge={otp.challenge}
+              maskedEmail={otp.email}
+              onVerified={onLoginSuccess}
+              onBack={() => onSwitchToLogin()}
+            />
+          ) : (
+            <>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">First Name *</label>
-                <input
-                  type="text"
-                  name="first_name"
-                  className="form-input"
-                  placeholder="e.g. Juan"
-                  value={formData.first_name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
+              {error && (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#fca5a5',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <i className="fa-solid fa-circle-exclamation"></i>
+                  <span>{error}</span>
+                </div>
+              )}
 
-              <div className="form-group">
-                <label className="form-label">Last Name *</label>
-                <input
-                  type="text"
-                  name="last_name"
-                  className="form-input"
-                  placeholder="e.g. Dela Cruz"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </div>
+              <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
-            <div className="form-group">
-              <label className="form-label">
-                Middle Name <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
-              </label>
-              <input
-                type="text"
-                name="middle_name"
-                className="form-input"
-                placeholder="Leave blank if none"
-                value={formData.middle_name}
-                onChange={handleChange}
-              />
-            </div>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Student ID Number *</label>
-                <input
-                  type="text"
-                  name="student_number"
-                  className="form-input"
-                  placeholder="2026-00123"
-                  maxLength={10}
-                  pattern="\d{4}-\d{5}"
-                  value={formData.student_number}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
 
-              <div className="form-group">
-                <label className="form-label">Year Level</label>
-                <select
-                  name="year_level"
-                  className="form-select"
-                  value={formData.year_level}
-                  onChange={handleChange}
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">First Name *</label>
+                    <input
+                      type="text"
+                      name="first_name"
+                      className="form-input"
+                      placeholder="e.g. Juan"
+                      value={formData.first_name}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Last Name *</label>
+                    <input
+                      type="text"
+                      name="last_name"
+                      className="form-input"
+                      placeholder="e.g. Dela Cruz"
+                      value={formData.last_name}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    Middle Name <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="middle_name"
+                    className="form-input"
+                    placeholder="Leave blank if none"
+                    value={formData.middle_name}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Student ID Number *</label>
+                    <input
+                      type="text"
+                      name="student_number"
+                      className="form-input"
+                      placeholder="2026-00123"
+                      maxLength={10}
+                      pattern="\d{4}-\d{5}"
+                      value={formData.student_number}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Year Level</label>
+                    <select
+                      name="year_level"
+                      className="form-select"
+                      value={formData.year_level}
+                      onChange={handleChange}
+                    >
+                      <option value="1st Year">1st Year</option>
+                      <option value="2nd Year">2nd Year</option>
+                      <option value="3rd Year">3rd Year</option>
+                      <option value="4th Year">4th Year</option>
+                      <option value="Graduate / Post-Grad">Graduate / Post-Grad</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Degree Program</label>
+                  <select
+                    name="program"
+                    className="form-select"
+                    value={formData.program}
+                    onChange={handleChange}
+                  >
+                    <option value="BS Computer Science">BS Computer Science</option>
+                    <option value="BS Information Technology">BS Information Technology</option>
+                    <option value="BS Nursing">BS Nursing</option>
+                    <option value="BS Civil Engineering">BS Civil Engineering</option>
+                    <option value="BS Secondary Education">BS Secondary Education</option>
+                    <option value="BS Criminology">BS Criminology</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">WMSU Institutional Email *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    className="form-input"
+                    placeholder="student.name@wmsu.edu.ph"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Password *</label>
+                    <input
+                      type="password"
+                      name="password"
+                      className="form-input"
+                      placeholder="Create password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Confirm Password *</label>
+                    <input
+                      type="password"
+                      name="confirm_password"
+                      className="form-input"
+                      placeholder="Confirm password"
+                      value={formData.confirm_password}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={loading}
+                  style={{ marginTop: '10px', height: '46px', fontSize: '1rem' }}
                 >
-                  <option value="1st Year">1st Year</option>
-                  <option value="2nd Year">2nd Year</option>
-                  <option value="3rd Year">3rd Year</option>
-                  <option value="4th Year">4th Year</option>
-                  <option value="Graduate / Post-Grad">Graduate / Post-Grad</option>
-                </select>
+                  <i className="fa-solid fa-user-plus"></i>
+                  {loading ? 'Creating Account...' : 'Complete Registration & Sign In'}
+                </button>
+              </form>
+
+              {/* Switch back to Log In */}
+              <div style={{
+                textAlign: 'center',
+                paddingTop: '14px',
+                borderTop: '1px solid #333235',
+                fontSize: '0.88rem',
+                color: '#9ca3af'
+              }}>
+                Already registered with an account?{' '}
+                <button
+                  type="button"
+                  onClick={onSwitchToLogin}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#f87171',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Log In here
+                </button>
+
               </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Degree Program</label>
-              <select
-                name="program"
-                className="form-select"
-                value={formData.program}
-                onChange={handleChange}
-              >
-                <option value="BS Computer Science">BS Computer Science</option>
-                <option value="BS Information Technology">BS Information Technology</option>
-                <option value="BS Nursing">BS Nursing</option>
-                <option value="BS Civil Engineering">BS Civil Engineering</option>
-                <option value="BS Secondary Education">BS Secondary Education</option>
-                <option value="BS Criminology">BS Criminology</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">WMSU Institutional Email *</label>
-              <input
-                type="email"
-                name="email"
-                className="form-input"
-                placeholder="student.name@wmsu.edu.ph"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Password *</label>
-                <input
-                  type="password"
-                  name="password"
-                  className="form-input"
-                  placeholder="Create password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Confirm Password *</label>
-                <input
-                  type="password"
-                  name="confirm_password"
-                  className="form-input"
-                  placeholder="Confirm password"
-                  value={formData.confirm_password}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={loading}
-              style={{ marginTop: '10px', height: '46px', fontSize: '1rem' }}
-            >
-              <i className="fa-solid fa-user-plus"></i>
-              {loading ? 'Creating Account...' : 'Complete Registration & Sign In'}
-            </button>
-          </form>
-
-          {/* Switch back to Log In */}
-          <div style={{
-            textAlign: 'center',
-            paddingTop: '14px',
-            borderTop: '1px solid #333235',
-            fontSize: '0.88rem',
-            color: '#9ca3af'
-          }}>
-            Already registered with an account?{' '}
-            <button
-              type="button"
-              onClick={onSwitchToLogin}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#f87171',
-                fontWeight: 700,
-                cursor: 'pointer',
-                textDecoration: 'underline'
-              }}
-            >
-              Log In here
-            </button>
-          </div>
-
+            </>
+          )}
         </div>
       </div>
 
