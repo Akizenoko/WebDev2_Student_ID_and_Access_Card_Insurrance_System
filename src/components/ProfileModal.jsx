@@ -484,22 +484,6 @@ function ProfileModal({
         {/* Modal Footer with Actions */}
         <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: '10px' }}>
-            {onOpenSwitchUser && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  onClose();
-                  onOpenSwitchUser();
-                }}
-                style={{ fontSize: '0.85rem', padding: '8px 16px' }}
-                title="Switch to another user account"
-              >
-                <i className="fa-solid fa-users" style={{ marginRight: '6px' }}></i>
-                Switch User
-              </button>
-            )}
-
             {onRequestLogout && (
               <button
                 type="button"

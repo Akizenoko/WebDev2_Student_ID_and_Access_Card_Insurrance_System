@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import Navbar from './components/navbar.jsx';
 import Header from './components/header.jsx';
 import StudentDashboard from './components/StudentDashboard.jsx';
@@ -139,6 +139,39 @@ function App() {
     }
     setAuthView('login');
   };
+
+  // Auto-logout when the user closes the tab / browser window or navigates away.
+  // Uses pagehide (reliable on all browsers, including mobile Safari) and
+  // eforeunload as a fallback. navigator.sendBeacon is used so the request
+  // completes even after page unload.
+  useEffect(() => {
+    const signOutOnLeave = () => {
+      const saved = localStorage.getItem('wmsu_auth_user');
+      if (!saved) return;
+      try {
+        const { token } = JSON.parse(saved);
+        if (token) {
+          // Fire-and-forget logout beacon — completes even after page unload
+          navigator.sendBeacon(
+            '/api/auth/logout',
+            new Blob([JSON.stringify({ token })], { type: 'application/json' })
+          );
+        }
+      } catch {
+        // ignore parse errors
+      }
+      // Always clear local storage so the next visit starts at the login page
+      localStorage.removeItem('wmsu_auth_user');
+    };
+
+    window.addEventListener('pagehide', signOutOnLeave);
+    window.addEventListener('beforeunload', signOutOnLeave);
+
+    return () => {
+      window.removeEventListener('pagehide', signOutOnLeave);
+      window.removeEventListener('beforeunload', signOutOnLeave);
+    };
+  }, []);
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);

@@ -105,15 +105,6 @@ ${profile?.first_name || 'The'} ${profile?.middle_name || ''} ${profile?.last_na
             </div>
           ) : (
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                className='applyid'
-                onClick={onOpenAuth}
-                style={{ width: 'auto', padding: '13px 24px' }}
-              >
-                <i className="fa-solid fa-user-graduate" style={{ marginRight: '6px' }}></i>
-                Switch User
-              </button>
             </div>
           )}
         </div>

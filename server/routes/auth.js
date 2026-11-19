@@ -143,6 +143,14 @@ if (cleanMiddle && cleanMiddle.length > 100) {
     }
 });
 
+// POST /api/auth/logout  — client calls this when ending the session
+router.post('/logout', requireAuth, (req, res) => {
+    // JWT is stateless; the client must discard its token.
+    // This endpoint exists so the client can signal session-end
+    // (e.g. via navigator.sendBeacon) and for future token-blocklist support.
+    res.json({ message: 'Logged out successfully' });
+});
+
 router.get('/me', requireAuth, async (req, res) => {
     const user = await getFullUser(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
