@@ -461,6 +461,12 @@
   color: #6b7280;
 }
 
+.wmsu-card-portrait { width: 260px; height: 420px; }
+.wmsu-card-portrait .wmsu-card-body { flex-direction: column; align-items: center; gap: 8px; padding: 12px; }
+.wmsu-card-portrait .wmsu-card-photo { width: 104px; height: 120px; }
+.wmsu-card-portrait .wmsu-card-info { text-align: center; align-items: center; }
+.wmsu-card-portrait .wmsu-card-footer { flex-direction: column; gap: 3px; text-align: center; }
+
 .modal-card {
   max-height: 90vh;
   display: flex;
@@ -473,6 +479,14 @@
   flex: 1;
   min-height: 0;
 }
+
+.staff-capture { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 14px; color: #431407; }
+.staff-capture p { font-size: .8rem; margin: 5px 0 10px; color: #7c2d12; }
+.capture-preview { width: 180px; height: 220px; object-fit: cover; display: block; background: #e5e7eb; border-radius: 8px; border: 1px solid #fdba74; margin-bottom: 10px; }
+.capture-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.capture-error { color: #b91c1c; font-size: .8rem; margin: 8px 0; }
+.rejection-dialog { background: #fef2f2; border: 1px solid #fecaca; padding: 14px; border-radius: 10px; color: #7f1d1d; }
+.rejection-dialog p { font-size: .8rem; margin: 5px 0 10px; }
 
 .modal-body {
   overflow-y: auto;

@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import Arle from '../assets/Arle.png';
 import StatusStepper from './StatusStepper';
 import { formatFullName } from '../utils/formatName';
+import StaffPhotoCapture from './StaffPhotoCapture';
 
 const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
@@ -18,10 +19,11 @@ const ALLOWED_NEXT = {
 function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onUpdate, onViewCard }) {
   const [updating, setUpdating] = useState(false);
   const [adminRemarks, setAdminRemarks] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
 
   if (!isOpen || !application) return null;
 
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = ['admin', 'validator'].includes(currentUser?.role);
   const allowedNextStatuses = ALLOWED_NEXT[application.status] || [];
 
   const handleStatusChange = async (newStatus) => {
@@ -154,7 +156,7 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
                     <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '4px' }}>Reissuance Details:</div>
                     <div><span style={{ color: '#9ca3af' }}>Reason:</span> {application.reissuance.reason}</div>
                     <div><span style={{ color: '#9ca3af' }}>Fee:</span> ₱{Number(application.reissuance.fee_amount || 0).toFixed(2)}</div>
-                    <div><span style={{ color: '#9ca3af' }}>Original Card ID:</span> #{application.reissuance.original_card_id}</div>
+                    <div><span style={{ color: '#9ca3af' }}>Original Card Number:</span> {application.reissuance.original_card_number || `#${application.reissuance.original_card_id ?? 'removed'}`}</div>
                   </div>
                 )}
 
@@ -237,6 +239,10 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
                 </span>
               </div>
 
+              {!application.photo && (
+                <StaffPhotoCapture applicationId={application.id} onSaved={onUpdate} />
+              )}
+
               {allowedNextStatuses.length === 0 ? (
                 <div style={{
                   color: application.status === 'released' ? '#34d399' : '#f87171',
@@ -302,19 +308,12 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
                         Release Card & Generate Registry Record
                       </button>
                     )}
-                    {allowedNextStatuses.includes('rejected') && (
+                    {allowedNextStatuses.includes('rejected') && !isRejecting && (
                       <button
                         type="button"
                         className="btn-secondary"
                         disabled={updating}
-                        onClick={() => {
-                          if (!adminRemarks) {
-                            const note = window.prompt('Please provide a reason or note for rejecting this application:');
-                            if (note === null) return;
-                            setAdminRemarks(note);
-                          }
-                          handleStatusChange('rejected');
-                        }}
+                        onClick={() => setIsRejecting(true)}
                         style={{ color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)' }}
                       >
                         <i className="fa-solid fa-ban" style={{ marginRight: '6px' }}></i>
@@ -322,6 +321,17 @@ function ApplicationDetailModal({ isOpen, onClose, application, currentUser, onU
                       </button>
                     )}
                   </div>
+                  {isRejecting && (
+                    <div className="rejection-dialog">
+                      <strong>Reject application</strong>
+                      <p>A specific reason is required and will be visible to the student.</p>
+                      <textarea className="form-textarea" value={adminRemarks} onChange={e => setAdminRemarks(e.target.value)} placeholder="State the missing or invalid requirement…" />
+                      <div className="capture-actions">
+                        <button type="button" className="btn-secondary" onClick={() => setIsRejecting(false)}>Cancel</button>
+                        <button type="button" className="btn-primary" disabled={!adminRemarks.trim() || updating} onClick={() => handleStatusChange('rejected')}>Confirm rejection</button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

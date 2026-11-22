@@ -10,10 +10,12 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
     last_name: '',
     student_number: '',
     program: 'BS Computer Science',
+    college: '',
     year_level: '1st Year',
     email: '',
     password: '',
     confirm_password: '',
+    cor_image: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -23,6 +25,18 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCorUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      setError('Upload a PNG or JPEG COR image no larger than 2 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setFormData(prev => ({ ...prev, cor_image: reader.result }));
+    reader.readAsDataURL(file);
   };
 
   const handleRegister = async (e) => {
@@ -45,6 +59,8 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
         last_name: formData.last_name,
         program: formData.program,
         year_level: formData.year_level,
+        college: formData.college,
+        cor_image: formData.cor_image,
       });
 
       setOtp(data);
@@ -56,7 +72,7 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
   };
 
   return (
-    <div style={{
+    <div className="auth-page" style={{
       minHeight: '100vh',
       background: 'radial-gradient(circle at 50% 20%, #2b1717 0%, rgb(24, 23, 25) 75%)',
       display: 'flex',
@@ -67,7 +83,7 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
       color: '#ffffff'
     }}>
       {/* Brand Header */}
-      <div style={{
+      <div className="auth-card" style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -240,6 +256,14 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
                 </div>
 
                 <div className="form-group">
+                  <label className="form-label">College *</label>
+                  <select name="college" className="form-select" value={formData.college} onChange={handleChange} required>
+                    <option value="">Select your college</option>
+                    <option>College of Computing Studies</option><option>College of Engineering</option><option>College of Nursing</option><option>College of Education</option><option>College of Liberal Arts</option><option>College of Criminal Justice Education</option><option>College of Business Administration</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
                   <label className="form-label">Degree Program</label>
                   <select
                     name="program"
@@ -257,16 +281,23 @@ function SignInPage({ onLoginSuccess, onSwitchToLogin }) {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">WMSU Institutional Email *</label>
+                  <label className="form-label">Email address for verification *</label>
                   <input
                     type="email"
                     name="email"
                     className="form-input"
-                    placeholder="student.name@wmsu.edu.ph"
+                      placeholder="your.email@gmail.com"
                     value={formData.email}
                     onChange={handleChange}
                     required
                   />
+                  <span className="form-hint">A 6-digit verification code will be sent to this address. Gmail and other email providers are accepted.</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Certificate of Registration (COR) *</label>
+                  <input type="file" accept="image/png,image/jpeg" className="form-input" onChange={handleCorUpload} required />
+                  <span className="form-hint">Upload a current COR as a PNG or JPEG (maximum 2 MB). It is reviewed before your ID is produced.</span>
                 </div>
 
                 <div className="form-row">

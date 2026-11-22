@@ -121,6 +121,11 @@ router.post('/login', async (req, res) => {
         if (!valid) return res.status(401).json({ message: 'Invalid email or password' });
         if (!user.is_active) return res.status(403).json({ message: 'Account is deactivated' });
 
+        await pool.query(`INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+          VALUES ($1, 'login', 'user', $1, jsonb_build_object('email', $2::text, 'role', $3::text))`, [user.id, user.email, user.role]);
+
+        // Email OTP is completed when the account is registered. Existing
+        // students and staff sign in directly with their registered email and password.
         res.json({ ...(await getFullUser(user.id)), token: signToken(user) });
     } catch (err) {
         console.error(err);
@@ -129,10 +134,10 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/register', async (req, res) => {
-    const { email, password, student_number, first_name, middle_name, last_name, program, year_level } = req.body;
+    const { email, password, student_number, first_name, middle_name, last_name, program, year_level, college, cor_image } = req.body;
 
         const required = [email, password, student_number, first_name, last_name];
-    const optional = [middle_name, program, year_level];
+    const optional = [middle_name, program, year_level, college];
     if (!required.every(v => typeof v === 'string') ||
         optional.some(v => v != null && typeof v !== 'string')) {
         return res.status(400).json({ message: 'All fields must be text' });
@@ -147,10 +152,9 @@ router.post('/register', async (req, res) => {
     if (password.length < 8) {
         return res.status(400).json({ message: 'Password must be at least 8 characters' });
     }
-    // wmsu emails only
     const cleanEmail = email.trim().toLowerCase();
-    if (!/^[^\s@]+@wmsu\.edu\.ph$/.test(cleanEmail)) {
-        return res.status(400).json({ message: 'Only @wmsu.edu.ph email addresses can sign up' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        return res.status(400).json({ message: 'Enter a valid email address for OTP verification' });
     }
 
     // valid id numbers only ex. 2025-12345
@@ -163,6 +167,12 @@ router.post('/register', async (req, res) => {
 if (cleanMiddle && cleanMiddle.length > 100) {
     return res.status(400).json({ message: 'Middle name is too long' });
 }
+    const cleanCollege = String(college ?? '').trim();
+    if (!cleanCollege) return res.status(400).json({ message: 'College is required' });
+    const corMatch = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/]+={0,2})$/.exec(typeof cor_image === 'string' ? cor_image : '');
+    if (!corMatch) return res.status(400).json({ message: 'A PNG or JPEG image of your current COR is required' });
+    const corBytes = Buffer.from(corMatch[2], 'base64');
+    if (corBytes.length === 0 || corBytes.length > 2 * 1024 * 1024) return res.status(413).json({ message: 'COR image must be 2 MB or smaller' });
 
     const client = await pool.connect();
     try {
@@ -174,10 +184,15 @@ if (cleanMiddle && cleanMiddle.length > 100) {
             `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'student') RETURNING id, role`,
             [cleanEmail.trim().toLowerCase(), hash]
         );
+        const cor = await client.query(
+          `INSERT INTO uploaded_files (uploaded_by, kind, storage_path, media_type, original_name)
+           VALUES ($1, 'cor', $2, $3, 'COR registration document') RETURNING id`,
+          [u.rows[0].id, cor_image, corMatch[1]]
+        );
         await client.query(
-            `INSERT INTO student_profiles (user_id, student_number, first_name, middle_name, last_name, program, year_level)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [u.rows[0].id, cleanStudentNo, first_name.trim(), cleanMiddle, last_name.trim(), program || 'Undecided', year_level || '1st Year']
+          `INSERT INTO student_profiles (user_id, student_number, first_name, middle_name, last_name, program, year_level, college, cor_file_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [u.rows[0].id, cleanStudentNo, first_name.trim(), cleanMiddle, last_name.trim(), program || 'Undecided', year_level || '1st Year', cleanCollege, cor.rows[0].id]
         );
         await client.query('COMMIT');
 
@@ -192,6 +207,23 @@ if (cleanMiddle && cleanMiddle.length > 100) {
     } finally {
         client.release();
     }
+});
+
+// Administrators provision validation officers; public registration can only create students.
+router.post('/staff', requireAuth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin access required' });
+  const { email, password, employee_no, office = 'UPRESS Validation Desk' } = req.body;
+  if (![email, password, employee_no].every(v => typeof v === 'string' && v.trim())) return res.status(400).json({ message: 'Email, password, and employee number are required' });
+  if (password.length < 12 || password.length > 72) return res.status(400).json({ message: 'Staff password must be 12–72 characters' });
+  try {
+    const hash = await bcrypt.hash(password, 12);
+    const user = await pool.query(`INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'validator') RETURNING id, email, role`, [email.trim().toLowerCase(), hash]);
+    await pool.query('INSERT INTO admin_profiles (user_id, employee_no, office) VALUES ($1, $2, $3)', [user.rows[0].id, employee_no.trim(), office.trim().slice(0, 100)]);
+    res.status(201).json(user.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ message: 'Email or employee number is already in use' });
+    console.error(err); res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // POST /api/auth/logout  — client calls this when ending the session
@@ -248,6 +280,92 @@ router.get('/users', requireAuth, async (req, res) => {
         console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
+});
+
+router.patch('/users/:id/active', requireAuth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin access required' });
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id === req.user.id) return res.status(400).json({ message: 'Invalid account' });
+  const active = req.body.active === true;
+  const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+  if (!active && !reason) return res.status(400).json({ message: 'A reason is required to deactivate an account' });
+  if (reason.length > 300) return res.status(400).json({ message: 'Reason must be 300 characters or fewer' });
+  try {
+    const result = await pool.query('UPDATE users SET is_active = $1 WHERE id = $2 RETURNING id, email, role, is_active', [active, id]);
+    if (!result.rows.length) return res.status(404).json({ message: 'Account not found' });
+    await pool.query('INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details) VALUES ($1, $2, \'user\', $3, $4)', [req.user.id, active ? 'account_activated' : 'account_deactivated', id, JSON.stringify(active ? { targetEmail: result.rows[0].email } : { targetEmail: result.rows[0].email, reason })]);
+    res.json(result.rows[0]);
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
+router.delete('/users/:id', requireAuth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin access required' });
+  const targetId = Number(req.params.id);
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!Number.isInteger(targetId) || targetId === req.user.id) {
+    return res.status(400).json({ message: 'Invalid account' });
+  }
+  if (!password) return res.status(400).json({ message: 'Enter your admin password to permanently delete this account' });
+
+  const client = await pool.connect();
+  try {
+    const admin = await client.query('SELECT password_hash FROM users WHERE id = $1 AND role = $2', [req.user.id, 'admin']);
+    if (!admin.rows.length || !(await bcrypt.compare(password, admin.rows[0].password_hash))) {
+      return res.status(401).json({ message: 'Admin password is incorrect' });
+    }
+
+    await client.query('BEGIN');
+    const target = await client.query('SELECT id, email, role FROM users WHERE id = $1 FOR UPDATE', [targetId]);
+    if (!target.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Account not found' });
+    }
+    if (target.rows[0].role !== 'student') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'Only student accounts can be permanently deleted here' });
+    }
+
+    const profile = await client.query('SELECT id FROM student_profiles WHERE user_id = $1', [targetId]);
+    const profileId = profile.rows[0]?.id;
+    if (profileId) {
+      await client.query(
+        `DELETE FROM audit_logs
+         WHERE actor_id = $1
+            OR (entity_type = 'application' AND entity_id IN (SELECT id FROM applications WHERE student_id = $2))
+            OR (entity_type = 'card' AND entity_id IN (SELECT id FROM cards WHERE student_id = $2))
+            OR (entity_type = 'user' AND entity_id = $1)`,
+        [targetId, profileId]
+      );
+      await client.query('DELETE FROM reissuance_requests rr USING applications a WHERE rr.application_id = a.id AND a.student_id = $1', [profileId]);
+      await client.query('DELETE FROM cards WHERE student_id = $1', [profileId]);
+      await client.query('DELETE FROM applications WHERE student_id = $1', [profileId]);
+      await client.query('DELETE FROM student_profiles WHERE id = $1', [profileId]);
+    }
+    await client.query('DELETE FROM uploaded_files WHERE uploaded_by = $1', [targetId]);
+    await client.query(
+      `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+       VALUES ($1, 'account_permanently_deleted', 'user', $2, $3::jsonb)`,
+      [req.user.id, targetId, JSON.stringify({ accountRole: 'student' })]
+    );
+    await client.query('DELETE FROM users WHERE id = $1', [targetId]);
+    await client.query('COMMIT');
+    res.json({ ok: true, message: 'Student account and associated records were permanently deleted' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ message: 'Could not permanently delete the account' });
+  } finally {
+    client.release();
+  }
+});
+
+router.get('/audit-logs', requireAuth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin access required' });
+  try {
+    const { rows } = await pool.query(`SELECT l.id, l.action, l.entity_type, l.entity_id, l.details, l.created_at, u.email AS actor_email, u.role AS actor_role
+      FROM audit_logs l LEFT JOIN users u ON u.id = l.actor_id ORDER BY l.created_at DESC LIMIT 500`);
+    res.json(rows);
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
 export default router;

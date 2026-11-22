@@ -155,7 +155,7 @@ function ReissueModal({ isOpen, onClose, currentUser, onSuccess, initialReason, 
         original_card_id: Number(formData.original_card_id),
         reason: finalReason,
         fee_amount: Number(formData.fee_amount),
-        photo_file_id: photoFileId,
+        proof_file_id: photoFileId,
         user_id: currentUser?.id || 1,
       });
 

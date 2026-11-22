@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../services/api';
+import OtpStep from '../components/OtpStep';
 import wmsulogo from '../assets/wmsulogo.png';
 
 
@@ -8,14 +9,15 @@ function LoginPage({ onLoginSuccess, onSwitchToSignIn }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [otp, setOtp] = useState(null);
 
  const handleLogin = async (e) => {
   e.preventDefault();
   setError('');
   try {
     setLoading(true);
-    const user = await api.login(email, password);
-    onLoginSuccess(user);
+    const result = await api.login(email, password);
+    setOtp(result);
   } catch (err) {
     setError(err.message || 'Invalid email or password');
   } finally {
@@ -24,7 +26,7 @@ function LoginPage({ onLoginSuccess, onSwitchToSignIn }) {
 };
 
   return (
-    <div style={{
+    <div className="auth-page" style={{
       minHeight: '100vh',
       background: 'radial-gradient(circle at 50% 20%, #2b1717 0%, rgb(24, 23, 25) 75%)',
       display: 'flex',
@@ -35,7 +37,7 @@ function LoginPage({ onLoginSuccess, onSwitchToSignIn }) {
       color: '#ffffff'
     }}>
       {/* Brand Header */}
-      <div style={{
+      <div className="auth-card" style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -113,6 +115,9 @@ function LoginPage({ onLoginSuccess, onSwitchToSignIn }) {
                 </div>
               )}
 
+              {otp ? (
+                <OtpStep challenge={otp.challenge} maskedEmail={otp.email} onVerified={onLoginSuccess} onBack={() => setOtp(null)} />
+              ) : (<>
               {/* Form */}
               <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div className="form-group">
@@ -120,7 +125,7 @@ function LoginPage({ onLoginSuccess, onSwitchToSignIn }) {
                   <input
                     type="email"
                     className="form-input"
-                    placeholder="name@wmsu.edu.ph"
+                    placeholder="your.email@gmail.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
@@ -175,6 +180,7 @@ function LoginPage({ onLoginSuccess, onSwitchToSignIn }) {
                   Sign In / Register here
                 </button>
               </div>
+              </>)}
           
         </div>
 

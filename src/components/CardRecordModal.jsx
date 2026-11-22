@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import wmsulogo from '../assets/wmsulogo.png';
 import Arle from '../assets/Arle.png';
 
 function CardRecordModal({ isOpen, onClose, card }) {
+  const [orientation, setOrientation] = useState('landscape');
   if (!isOpen || !card) return null;
 
   const student = card.student;
@@ -32,8 +34,13 @@ function CardRecordModal({ isOpen, onClose, card }) {
 
         <div className="modal-body">
 
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <button type="button" className="btn-secondary" onClick={() => setOrientation('portrait')}>Portrait</button>
+            <button type="button" className="btn-secondary" onClick={() => setOrientation('landscape')}>Landscape</button>
+          </div>
+
           <div className="id-card-container">
-            <div className="wmsu-card">
+            <div className={`wmsu-card ${orientation === 'portrait' ? 'wmsu-card-portrait' : ''}`}>
               <div className="wmsu-card-header">
                 <img src={wmsulogo} alt="WMSU Seal" />
                 <div>

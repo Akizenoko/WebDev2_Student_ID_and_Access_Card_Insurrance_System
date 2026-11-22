@@ -14,6 +14,8 @@ const FULL_APPLICATION_QUERY = `
     sp.last_name,
     sp.middle_name,
     sp.program,
+    sp.college,
+    sp.cor_file_id,
     sp.year_level,
     su.email       AS student_email,
     ap.id          AS admin_prof_id,
@@ -23,6 +25,8 @@ const FULL_APPLICATION_QUERY = `
     uf.id          AS photo_id,
     uf.storage_path,
     uf.media_type,
+    cor.storage_path AS cor_storage_path,
+    cor.media_type AS cor_media_type,
     c.id           AS card_id,
     c.card_number,
     c.status       AS card_status,
@@ -32,6 +36,11 @@ const FULL_APPLICATION_QUERY = `
     rr.reason,
     rr.fee_amount,
     rr.original_card_id,
+    rr.original_card_number,
+    rr_proof.id AS reissuance_proof_id,
+    rr_proof.storage_path AS reissuance_proof_storage_path,
+    rr_proof.media_type AS reissuance_proof_media_type,
+    rr_proof.original_name AS reissuance_proof_original_name,
     orig_a.type    AS original_card_type,
     sh_hist.history_logs
   FROM applications a
@@ -40,8 +49,10 @@ const FULL_APPLICATION_QUERY = `
   LEFT JOIN admin_profiles ap    ON ap.id = a.assigned_to
   LEFT JOIN users au             ON au.id = ap.user_id
   LEFT JOIN uploaded_files uf    ON uf.id = a.photo_file_id
+  LEFT JOIN uploaded_files cor   ON cor.id = sp.cor_file_id
   LEFT JOIN cards c              ON c.application_id = a.id
   LEFT JOIN reissuance_requests rr ON rr.application_id = a.id
+  LEFT JOIN uploaded_files rr_proof ON rr_proof.id = rr.proof_file_id
   LEFT JOIN cards orig_c        ON orig_c.id = rr.original_card_id
   LEFT JOIN applications orig_a ON orig_a.id = orig_c.application_id
   LEFT JOIN LATERAL (
@@ -81,6 +92,12 @@ function shapeApplication(row) {
       middle_name:    row.middle_name,
       last_name:      row.last_name,
       program:        row.program,
+      college:        row.college,
+      cor_file_id:    row.cor_file_id,
+      cor: row.cor_file_id ? {
+        storage_path: row.cor_storage_path,
+        media_type: row.cor_media_type,
+      } : null,
       year_level:     row.year_level,
       email:          row.student_email,
     } : null,
@@ -107,7 +124,14 @@ function shapeApplication(row) {
       reason:     row.reason,
       fee_amount: row.fee_amount,
       original_card_id: row.original_card_id,
+      original_card_number: row.original_card_number,
       original_card_type: row.original_card_type === 'Access Card' ? 'Access Card' : 'Student ID',
+      proof: row.reissuance_proof_id ? {
+        id: row.reissuance_proof_id,
+        storage_path: row.reissuance_proof_storage_path,
+        media_type: row.reissuance_proof_media_type,
+        original_name: row.reissuance_proof_original_name,
+      } : null,
     } : null,
   };
 }
@@ -115,7 +139,7 @@ function shapeApplication(row) {
 // GET /api/applications
 router.get('/', async (req, res) => {
   try {
-    const { student_id, status, type, search } = req.query;
+    const { student_id, status, type, search, college, date_from, date_to } = req.query;
     const conditions = [];
     const values = [];
 
@@ -157,6 +181,18 @@ router.get('/', async (req, res) => {
         LOWER(sp.program)       LIKE $${i}
       )`);
     }
+    if (college && college !== 'all') {
+      values.push(college);
+      conditions.push(`sp.college = $${values.length}`);
+    }
+    if (date_from) {
+      values.push(date_from);
+      conditions.push(`a.submitted_at >= $${values.length}::date`);
+    }
+    if (date_to) {
+      values.push(date_to);
+      conditions.push(`a.submitted_at < ($${values.length}::date + INTERVAL '1 day')`);
+    }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const { rows } = await pool.query(
@@ -197,14 +233,15 @@ router.post('/', async (req, res) => {
   const isStudent = req.user.role === 'student';
   const student_id = isStudent ? req.user.profileId : req.body.student_id;
   const requestedType = req.body.type;
-  const allowedTypes = ['New ID', 'Access Card', 'Replacement', 'Renewal'];
+  // The university ID is the single physical credential and doubles as the
+  // access card. A student can request only an initial ID, renewal, or
+  // documented replacement.
+  const allowedTypes = ['New ID', 'Replacement', 'Renewal'];
   const type = allowedTypes.includes(requestedType) ? requestedType : 'New ID';
   if (!student_id) return res.status(400).json({ message: 'student_id is required' });
 
-  // A photo is required for New ID, Access Card, or Renewal if newly requested
-  if ((type === 'New ID' || type === 'Access Card' || type === 'Renewal') && !photo_file_id) {
-    return res.status(400).json({ message: `A photo is required for a ${type} application` });
-  }
+  // Official ID photos are captured by authorised staff at UPRESS, never supplied by students.
+  if (isStudent && photo_file_id) return res.status(400).json({ message: 'ID photos are captured by UPRESS staff after verification' });
 
   const client = await pool.connect();
   try {
@@ -230,7 +267,7 @@ router.post('/', async (req, res) => {
       );
       if (rows[0].has_app || rows[0].has_card) {
         await client.query('ROLLBACK');
-        return res.status(409).json({ message: 'First-time Student ID has already been applied. You can only request a reissuance for lost/destroyed ID, renew your card if expired, or apply for an Access Card.' });
+        return res.status(409).json({ message: 'You already have a university ID record. Use reissuance for a lost or damaged ID, or renew once it expires.' });
       }
     }
 
@@ -278,41 +315,6 @@ router.post('/', async (req, res) => {
       }
     }
 
-    if (type === 'Access Card') {
-      const { rows } = await client.query(
-        `SELECT EXISTS (
-           SELECT 1 FROM applications 
-           WHERE student_id = $1 AND type = 'Access Card' AND status IN ('submitted', 'processing', 'ready')
-         ) AS in_progress`,
-        [Number(student_id)]
-      );
-      if (rows[0].in_progress) {
-        await client.query('ROLLBACK');
-        return res.status(409).json({
-          message: 'You already have an Access Card application in progress.'
-        });
-      }
-
-      const activeCardRes = await client.query(
-        `SELECT EXISTS (
-           SELECT 1 FROM cards c
-           LEFT JOIN applications a ON a.id = c.application_id
-           LEFT JOIN reissuance_requests rr ON rr.application_id = a.id
-           LEFT JOIN cards orig_c ON orig_c.id = rr.original_card_id
-           LEFT JOIN applications orig_a ON orig_a.id = orig_c.application_id
-           WHERE c.student_id = $1 AND c.status = 'active'
-             AND (a.type = 'Access Card' OR orig_a.type = 'Access Card')
-         ) AS has_active`,
-        [Number(student_id)]
-      );
-      if (activeCardRes.rows[0].has_active) {
-        await client.query('ROLLBACK');
-        return res.status(409).json({
-          message: 'You already have an active Access Card. Students can only hold one active Access Card at a time.'
-        });
-      }
-    }
-
     // photo must exist and (for students) belong to the caller if photo_file_id is provided
     if (photo_file_id) {
       const f = await client.query('SELECT uploaded_by FROM uploaded_files WHERE id = $1', [Number(photo_file_id)]);
@@ -331,7 +333,7 @@ router.post('/', async (req, res) => {
     const appRes = await client.query(
       `INSERT INTO applications (application_no, student_id, assigned_to, photo_file_id, type, status)
        VALUES ('TEMP', $1, $2, $3, $4, 'submitted') RETURNING id`,
-      [Number(student_id), assignedTo, Number(photo_file_id), type]
+      [Number(student_id), assignedTo, photo_file_id ? Number(photo_file_id) : null, type]
     );
     const appId = appRes.rows[0].id;
     const appNo = `APP-${year}-${String(appId).padStart(4, '0')}`;
@@ -341,6 +343,14 @@ router.post('/', async (req, res) => {
       `INSERT INTO status_history (application_id, from_status, to_status, changed_by)
        VALUES ($1, NULL, 'submitted', $2)`,
       [appId, req.user.id]
+    );
+
+    await client.query(
+      `INSERT INTO notifications (user_id, application_id, message)
+       SELECT id, $1, $2
+       FROM users
+       WHERE role IN ('admin', 'validator') AND is_active = TRUE`,
+      [appId, `New ${type} application ${appNo} is waiting for review.`]
     );
 
     await client.query('COMMIT');
@@ -357,16 +367,17 @@ router.post('/', async (req, res) => {
 });
 
 // PATCH /api/applications/:id/status  (admin only)
-const STATUSES = ['submitted', 'processing', 'ready', 'released', 'rejected'];
+const STATUSES = ['submitted', 'processing', 'ready', 'released', 'rejected', 'needs_correction'];
 const ALLOWED_NEXT = {
-  submitted:  ['processing', 'rejected'],
-  processing: ['ready', 'rejected'],
-  ready:      ['released', 'rejected'],
+  submitted:  ['processing', 'rejected', 'needs_correction'],
+  processing: ['ready', 'rejected', 'needs_correction'],
+  ready:      ['released', 'rejected', 'needs_correction'],
+  needs_correction: ['processing', 'rejected'],
   released:   [],
   rejected:   [],
 };
 
-router.patch('/:id/status', requireRole('admin'), async (req, res) => {
+router.patch('/:id/status', requireRole('admin', 'validator'), async (req, res) => {
   const { status, remarks } = req.body;
   const appId = Number(req.params.id);
 
@@ -396,6 +407,16 @@ router.patch('/:id/status', requireRole('admin'), async (req, res) => {
     }
 
     const cleanRemarks = typeof remarks === 'string' && remarks.trim().length > 0 ? remarks.trim() : null;
+    if (['rejected', 'needs_correction'].includes(status) && !cleanRemarks) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        message: status === 'rejected' ? 'A rejection reason is required' : 'State what the student must correct'
+      });
+    }
+    if ((status === 'ready' || status === 'released') && !appRes.rows[0].photo_file_id) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ message: 'Capture an official UPRESS photo before marking this application ready' });
+    }
 
     await client.query(
       'UPDATE applications SET status = $1, remarks = COALESCE($2, remarks), updated_at = NOW() WHERE id = $3',
@@ -407,6 +428,9 @@ router.patch('/:id/status', requireRole('admin'), async (req, res) => {
        VALUES ($1, $2, $3, $4, $5)`,
       [appId, oldStatus, status, req.user.id, cleanRemarks]
     );
+    await client.query(`INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+      VALUES ($1, 'application_status_changed', 'application', $2, $3)`,
+    [req.user.id, appId, JSON.stringify({ from: oldStatus, to: status, remarks: cleanRemarks })]);
 
     // auto-create card when released
     if (status === 'released') {
@@ -417,18 +441,25 @@ router.patch('/:id/status', requireRole('admin'), async (req, res) => {
         const studentCode = sp.rows[0]?.student_number?.replace('-', '') || 'CRD';
         const issueDate = new Date().toISOString().split('T')[0];
         const validUntil = new Date();
-        validUntil.setFullYear(validUntil.getFullYear() + 4);
+        validUntil.setMonth(validUntil.getMonth() + 5);
 
-        if (app.type === 'Renewal' || app.type === 'Replacement') {
+        if (app.type === 'Replacement') {
+          const rrRes = await client.query(
+            'SELECT original_card_id, reason FROM reissuance_requests WHERE application_id = $1 FOR UPDATE',
+            [appId]
+          );
+          const oldCard = rrRes.rows[0];
+          if (oldCard?.original_card_id) {
+            const oldStatus = /lost|stolen/i.test(oldCard.reason) ? 'lost' : 'damaged';
+            await client.query('UPDATE cards SET status = $1 WHERE id = $2', [oldStatus, oldCard.original_card_id]);
+          }
+        } else if (app.type === 'Renewal') {
           const rrRes = await client.query(
             'SELECT original_card_id FROM reissuance_requests WHERE application_id = $1',
             [appId]
           );
-          if (rrRes.rows.length) {
-            await client.query(
-              "UPDATE cards SET status = 'expired' WHERE id = $1",
-              [rrRes.rows[0].original_card_id]
-            );
+          if (rrRes.rows.length && rrRes.rows[0].original_card_id) {
+            await client.query("UPDATE cards SET status = 'expired' WHERE id = $1", [rrRes.rows[0].original_card_id]);
           } else {
             await client.query(
               "UPDATE cards SET status = 'expired' WHERE student_id = $1 AND status = 'active'",
@@ -438,15 +469,30 @@ router.patch('/:id/status', requireRole('admin'), async (req, res) => {
         }
 
         await client.query(
-          `INSERT INTO cards (student_id, application_id, card_number, status, issue_date, valid_until)
-           VALUES ($1, $2, $3, 'active', $4, $5)`,
+          `INSERT INTO cards (student_id, application_id, card_number, credential_ref, status, access_status, issue_date, valid_until)
+           VALUES ($1, $2, $3, $4, 'active', 'unregistered', $5, $6)`,
           [
             app.student_id,
             appId,
             `WMSU-${new Date().getFullYear()}-${studentCode}-${Math.floor(100 + Math.random() * 900)}`,
+            `CRD-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
             issueDate,
             validUntil.toISOString().split('T')[0],
           ]
+        );
+      }
+    }
+
+    if (status === 'ready') {
+      const recipient = await client.query(
+        `SELECT sp.user_id FROM applications a JOIN student_profiles sp ON sp.id = a.student_id WHERE a.id = $1`, [appId]
+      );
+      if (recipient.rows[0]) {
+        await client.query(
+          `INSERT INTO notifications (user_id, application_id, message)
+           VALUES ($1, $2, $3)`,
+          [recipient.rows[0].user_id, appId,
+            `Ready for Pickup: your university ID is available at the registrar.${cleanRemarks ? ` Staff note: ${cleanRemarks}` : ''}`]
         );
       }
     }
@@ -483,6 +529,21 @@ router.patch('/:id/status', requireRole('admin'), async (req, res) => {
 });
 
 // PATCH /api/applications/:id/assign  (admin only)
+// Official photographs are captured by authorised UPRESS staff, not uploaded by students.
+router.patch('/:id/photo', requireRole('admin', 'validator'), async (req, res) => {
+  const appId = Number(req.params.id);
+  const fileId = Number(req.body.photo_file_id);
+  if (!Number.isInteger(appId) || !Number.isInteger(fileId)) return res.status(400).json({ message: 'Invalid photo or application' });
+  try {
+    const file = await pool.query('SELECT id FROM uploaded_files WHERE id = $1 AND uploaded_by = $2 AND kind = $3', [fileId, req.user.id, 'id_photo']);
+    if (!file.rows.length) return res.status(400).json({ message: 'Capture a valid staff photo first' });
+    const updated = await pool.query('UPDATE applications SET photo_file_id = $1, updated_at = NOW() WHERE id = $2 RETURNING id', [fileId, appId]);
+    if (!updated.rows.length) return res.status(404).json({ message: 'Application not found' });
+    const { rows } = await pool.query(`${FULL_APPLICATION_QUERY} WHERE a.id = $1`, [appId]);
+    res.json(shapeApplication(rows[0]));
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
 router.patch('/:id/assign', requireRole('admin'), async (req, res) => {
   const { assigned_to } = req.body;
   const appId = Number(req.params.id);

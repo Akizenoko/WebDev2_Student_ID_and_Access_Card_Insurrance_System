@@ -7,7 +7,6 @@ function ProfileModal({
   isOpen,
   onClose,
   currentUser,
-  onOpenSwitchUser,
   onRequestLogout,
   onViewCard
 }) {

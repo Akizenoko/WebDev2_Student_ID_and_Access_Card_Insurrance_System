@@ -4,13 +4,15 @@ import pool from '../db/pool.js';
 const router = express.Router();
 
 // POST /api/files/upload
-const MAX_BYTES = 2 * 1024 * 1024;                       // 2 MB
-const DATA_URL = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/]+={0,2})$/;
-const ALLOWED_KINDS = ['id_photo', 'proof_of_loss'];
+const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+const AFFIDAVIT_MAX_BYTES = 5 * 1024 * 1024;
+const DATA_URL = /^data:(image\/(?:png|jpeg)|application\/pdf);base64,([A-Za-z0-9+/]+={0,2})$/;
+const ALLOWED_KINDS = ['id_photo', 'proof_of_loss', 'affidavit_of_loss', 'cor', 'payment_receipt'];
 
 // real file signatures ("magic bytes")
 const isPng  = (b) => b.length > 8 && b.subarray(0, 8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]));
 const isJpeg = (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+const isPdf = (b) => b.length > 4 && b.subarray(0, 5).equals(Buffer.from('%PDF-'));
 
 router.post('/upload', async (req, res) => {
   const { kind = 'id_photo', storage_path, original_name } = req.body;
@@ -19,20 +21,21 @@ router.post('/upload', async (req, res) => {
     return res.status(400).json({ message: 'Invalid file kind' });
   }
 
-  // must be a PNG/JPEG data URL
+  // Accept image evidence, and PDF affidavits for lost or stolen cards.
   const m = DATA_URL.exec(typeof storage_path === 'string' ? storage_path : '');
-  if (!m) return res.status(400).json({ message: 'Only PNG or JPEG images are allowed' });
+  if (!m) return res.status(400).json({ message: 'Only PNG, JPEG, or PDF documents are allowed' });
 
   const claimedType = m[1];
   const buffer = Buffer.from(m[2], 'base64');
 
-  // size limit
-  if (buffer.length > MAX_BYTES) {
-    return res.status(413).json({ message: 'Image too large (max 2 MB)' });
+  const documentKind = ['affidavit_of_loss', 'payment_receipt'].includes(kind);
+  const maxBytes = documentKind ? AFFIDAVIT_MAX_BYTES : IMAGE_MAX_BYTES;
+  if (buffer.length > maxBytes) {
+    return res.status(413).json({ message: documentKind ? 'Document too large (max 5 MB)' : 'Image too large (max 2 MB)' });
   }
 
   // the bytes must really be that image type
-  const ok = claimedType === 'image/png' ? isPng(buffer) : isJpeg(buffer);
+  const ok = claimedType === 'image/png' ? isPng(buffer) : claimedType === 'image/jpeg' ? isJpeg(buffer) : documentKind && isPdf(buffer);
   if (!ok) return res.status(400).json({ message: 'File content does not match its type' });
 
   try {

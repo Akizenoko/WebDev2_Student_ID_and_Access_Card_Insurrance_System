@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { api } from '../services/api';
-import Arle from '../assets/Arle.png';
 import { isCardValidationOver } from '../utils/status';
 
 function ApplyModal({ isOpen, onClose, currentUser, onSuccess, applications = [], cards = [], initialType = 'New ID' }) {
@@ -44,7 +43,6 @@ function ApplyModal({ isOpen, onClose, currentUser, onSuccess, applications = []
     last_name: studentProfile?.last_name || '',
     program: studentProfile?.program || 'BS Computer Science',
     year_level: studentProfile?.year_level || '1st Year',
-    photo_url: studentProfile?.photo_url || (studentProfile?.first_name === 'The' ? Arle : ''),
   });
 
   // Reset/sync form state when modal opens without cascading effect renders
@@ -60,24 +58,12 @@ function ApplyModal({ isOpen, onClose, currentUser, onSuccess, applications = []
         last_name: studentProfile?.last_name || '',
         program: studentProfile?.program || 'BS Computer Science',
         year_level: studentProfile?.year_level || '1st Year',
-        photo_url: studentProfile?.photo_url || (studentProfile?.first_name === 'The' ? Arle : ''),
       });
       setError('');
     }
   }
 
   if (!isOpen) return null;
-
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, photo_url: reader.result }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,32 +95,12 @@ function ApplyModal({ isOpen, onClose, currentUser, onSuccess, applications = []
       return;
     }
 
-    if (!formData.photo_url) {
-      setError('Please upload a 2x2 ID photo (white background).');
-      return;
-    }
-
     try {
       setLoading(true);
-
-      let photoFileId = null;
-      if (formData.photo_url.startsWith('data:')) {
-        const fileRecord = await api.uploadFile({
-          uploaded_by: currentUser?.id || 1,
-          kind: 'id_photo',
-          storage_path: formData.photo_url,
-          media_type: formData.photo_url.includes('image/png') ? 'image/png' : 'image/jpeg',
-        });
-        photoFileId = fileRecord.id;
-      } else {
-        // Fallback for demo seed photo
-        photoFileId = 1;
-      }
 
       const studentId = studentProfile?.id || 1;
       await api.createApplication({
         student_id: studentId,
-        photo_file_id: photoFileId,
         type: formData.type,
         user_id: currentUser?.id || 1,
       });
@@ -363,28 +329,8 @@ function ApplyModal({ isOpen, onClose, currentUser, onSuccess, applications = []
             </div>
 
             <div className="form-group">
-              <label className="form-label">
-                Applicant Photo (2x2 Formal Photo) <span className="required">*</span>
-              </label>
-              <div className="photo-uploader">
-                <div className="photo-preview">
-                  {formData.photo_url ? (
-                    <img src={formData.photo_url} alt="Applicant preview" />
-                  ) : (
-                    <span style={{ fontSize: '0.75rem', color: '#9ca3af', textAlign: 'center' }}>No Photo</span>
-                  )}
-                </div>
-                <div className="photo-controls">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    style={{ color: '#d1d5db', fontSize: '0.85rem' }}
-                  />
-                  <span className="form-hint">
-                    Formal 2x2 photo with white background
-                  </span>
-                </div>
+              <div className="form-hint" style={{ padding: '12px', borderRadius: '8px', background: '#eff6ff', color: '#1e3a8a' }}>
+                <strong>Official photo requirement:</strong> after your COR is verified, visit UPRESS for a staff member to capture your ID photo using the official camera.
               </div>
             </div>
 

@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db/pool.js';
+import { requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -10,12 +11,15 @@ router.get('/', async (req, res) => {
       `SELECT
          rr.*,
          c.card_number, c.status AS card_status,
+         COALESCE(rr.original_card_number, c.card_number) AS original_card_number,
          CASE
            WHEN orig_a.type = 'Access Card' THEN 'Access Card'
            ELSE 'Student ID'
          END AS original_card_type,
          sp.first_name, sp.middle_name, sp.last_name, sp.student_number,
          a.application_no, a.status AS application_status, a.type,
+          uf.storage_path AS payment_path, pf.storage_path AS proof_path,
+          verifier.email AS verified_by_email,
          COALESCE(
            CASE
              WHEN a.status = 'released' THEN 'released'
@@ -29,6 +33,9 @@ router.get('/', async (req, res) => {
        LEFT JOIN applications orig_a  ON orig_a.id = c.application_id
        LEFT JOIN applications a       ON a.id  = rr.application_id
        LEFT JOIN student_profiles sp  ON sp.id = a.student_id
+        LEFT JOIN uploaded_files uf    ON uf.id = rr.payment_file_id
+        LEFT JOIN uploaded_files pf    ON pf.id = rr.proof_file_id
+        LEFT JOIN users verifier       ON verifier.id = rr.verified_by
        ${req.user.role === 'student' ? 'WHERE a.student_id = $1' : ''}
        ORDER BY rr.created_at DESC`,
       req.user.role === 'student' ? [req.user.profileId] : []
@@ -36,12 +43,22 @@ router.get('/', async (req, res) => {
     res.json(rows.map(r => ({
       id:               r.id,
       original_card_id: r.original_card_id,
+      original_card_number: r.original_card_number,
       original_card_type: r.original_card_type,
       application_id:   r.application_id,
       reason:           r.reason,
       fee_amount:       r.fee_amount,
       status:           r.display_status || r.status,
       created_at:       r.created_at,
+      date_lost:        r.date_lost,
+      circumstances:    r.circumstances,
+      payment_reference: r.payment_reference,
+      payment_path:     r.payment_path,
+      proof_path:       r.proof_path,
+      verification_status: r.verification_status,
+      verified_at:      r.verified_at,
+      verified_by_email: r.verified_by_email,
+      verification_remarks: r.verification_remarks,
       card: {
         card_number: r.card_number,
         status:      r.card_status,
@@ -66,17 +83,42 @@ router.get('/', async (req, res) => {
 
 // POST /api/reissuance
 router.post('/', async (req, res) => {
-    const { original_card_id, reason, photo_file_id } = req.body;
+    const { original_card_id, reason, proof_file_id, photo_choice = 'new',
+      date_lost, circumstances, payment_reference, payment_file_id } = req.body;
+  const isLoss = /lost|stolen/i.test(String(reason || ''));
+  if (isLoss && !/^\d{4}-\d{2}-\d{2}$/.test(String(date_lost || ''))) {
+    return res.status(400).json({ message: 'Provide the date the ID was lost' });
+  }
   const fee_amount = 150.00; 
   const student_id = req.user.role === 'student' ? req.user.profileId : req.body.student_id;
 
-  if (!student_id || !original_card_id || !reason) {
-    return res.status(400).json({ message: 'student_id, original_card_id, and reason are required' });
+  if (!student_id || !original_card_id || !reason || !proof_file_id) {
+    return res.status(400).json({ message: 'Card, reason, and the required supporting document are required' });
   }
+  if (!['old', 'new'].includes(photo_choice)) return res.status(400).json({ message: 'Choose whether to reuse the current photo or take a new one' });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    const proof = await client.query(
+      `SELECT id FROM uploaded_files WHERE id = $1 AND uploaded_by = $2 AND kind = $3`,
+      [Number(proof_file_id), req.user.id, isLoss ? 'affidavit_of_loss' : 'proof_of_loss']
+    );
+    if (!proof.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: isLoss ? 'Upload an Affidavit of Loss before submitting reissuance' : 'Upload a damage photo before submitting reissuance' });
+    }
+    if (payment_file_id) {
+      const payment = await client.query(
+        `SELECT id FROM uploaded_files WHERE id = $1 AND uploaded_by = $2 AND kind = 'payment_receipt'`,
+        [Number(payment_file_id), req.user.id]
+      );
+      if (!payment.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Select a valid payment confirmation upload' });
+      }
+    }
 
     // 1. Verify card exists and belongs to this student, and determine if it's an Access Card or Student ID
     const cardRes = await client.query(
@@ -102,6 +144,14 @@ router.post('/', async (req, res) => {
     }
 
     const card = cardRes.rows[0];
+    const originalPhoto = await client.query(
+      `SELECT a.photo_file_id FROM cards c JOIN applications a ON a.id = c.application_id WHERE c.id = $1`,
+      [Number(original_card_id)]
+    );
+    if (photo_choice === 'old' && !originalPhoto.rows[0]?.photo_file_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'This ID has no saved photo. Choose a new photo captured at UPRESS.' });
+    }
     const isAccessCard = Boolean(card.is_access_card);
 
     // 2. Check if this specific card already has an in-progress reissuance request
@@ -202,7 +252,7 @@ router.post('/', async (req, res) => {
     const appRes = await client.query(
       `INSERT INTO applications (application_no, student_id, assigned_to, photo_file_id, type, status)
        VALUES ('TEMP', $1, $2, $3, $4, 'submitted') RETURNING id`,
-      [Number(student_id), assignedTo, photo_file_id ? Number(photo_file_id) : null, appType]
+      [Number(student_id), assignedTo, photo_choice === 'old' ? originalPhoto.rows[0].photo_file_id : null, appType]
     );
     const appId = appRes.rows[0].id;
     const appNo = `APP-${year}-${String(appId).padStart(4, '0')}`;
@@ -210,9 +260,13 @@ router.post('/', async (req, res) => {
 
     // create reissuance record
     const rrRes = await client.query(
-      `INSERT INTO reissuance_requests (original_card_id, application_id, reason, fee_amount)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [Number(original_card_id), appId, reason, Number(fee_amount) || 150.00]
+      `INSERT INTO reissuance_requests
+         (original_card_id, application_id, reason, fee_amount, proof_file_id,
+          date_lost, circumstances, payment_reference, payment_file_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [Number(original_card_id), appId, reason, Number(fee_amount) || 150.00, Number(proof_file_id),
+        isLoss ? date_lost : null, circumstances?.trim() || null,
+        payment_reference?.trim() || null, payment_file_id ? Number(payment_file_id) : null]
     );
 
     // status history
@@ -236,6 +290,49 @@ router.post('/', async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+// PATCH /api/reissuance/:id/verify — staff confirms a lost-ID report
+router.patch('/:id/verify', requireRole('admin', 'validator'), async (req, res) => {
+  const id = Number(req.params.id);
+  const { decision, remarks } = req.body;
+  if (!Number.isInteger(id)) return res.status(400).json({ message: 'Invalid report' });
+  if (!['verified', 'rejected'].includes(decision)) return res.status(400).json({ message: 'Choose verify or reject' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query(
+      `SELECT rr.*, a.student_id FROM reissuance_requests rr
+       JOIN applications a ON a.id = rr.application_id WHERE rr.id = $1 FOR UPDATE`, [id]);
+    const report = current.rows[0];
+    if (!report) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Report not found' }); }
+
+    const { rows } = await client.query(`
+      UPDATE reissuance_requests SET verification_status = $2::varchar, verified_by = $3,
+        verified_at = NOW(),
+        status = CASE WHEN $2::varchar = 'verified' THEN 'verified' ELSE 'rejected' END,
+        verification_remarks = COALESCE($4, verification_remarks)
+      WHERE id = $1 RETURNING *`, [id, decision, req.user.id, remarks?.trim() || null]);
+
+    if (decision === 'verified' && report.original_card_id) {
+      const before = await client.query('SELECT id, status, access_status FROM cards WHERE id = $1', [report.original_card_id]);
+      if (before.rows.length && before.rows[0].access_status !== 'revoked') {
+        await client.query("UPDATE cards SET access_status = 'revoked' WHERE id = $1", [report.original_card_id]);
+        await client.query(`
+          INSERT INTO card_status_history
+            (card_id, from_status, to_status, from_access_status, to_access_status, changed_by, reason)
+          VALUES ($1, NULL, NULL, $2, 'revoked', $3, $4)`,
+          [report.original_card_id, before.rows[0].access_status, req.user.id,
+            `Lost-ID report verified${remarks ? `: ${remarks.trim()}` : ''}`]);
+      }
+    }
+    await client.query(`INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+      VALUES ($1, 'loss_report_verified', 'reissuance', $2, $3::jsonb)`,
+      [req.user.id, id, JSON.stringify({ decision, remarks: remarks?.trim() || null })]);
+    await client.query('COMMIT');
+    res.json(rows[0]);
+  } catch (err) { await client.query('ROLLBACK'); console.error(err); res.status(500).json({ message: 'Server error' }); }
+  finally { client.release(); }
 });
 
 export default router;
