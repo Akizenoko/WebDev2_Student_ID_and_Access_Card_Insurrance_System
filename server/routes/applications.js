@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express from 'express';
 import pool from '../db/pool.js';
 import { requireRole } from '../middleware/auth.js';
@@ -378,7 +379,7 @@ const ALLOWED_NEXT = {
 };
 
 router.patch('/:id/status', requireRole('admin', 'validator'), async (req, res) => {
-  const { status, remarks } = req.body;
+  const { status, remarks, rfid_uid } = req.body;
   const appId = Number(req.params.id);
 
   if (!Number.isInteger(appId)) {
@@ -418,6 +419,20 @@ router.patch('/:id/status', requireRole('admin', 'validator'), async (req, res) 
       return res.status(409).json({ message: 'Capture an official UPRESS photo before marking this application ready' });
     }
 
+    let uid = null;
+    if (status === 'released') {
+      uid = typeof rfid_uid === 'string' ? rfid_uid.trim().toUpperCase() : '';
+      if (!/^[0-9A-Z]{4,32}$/.test(uid)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Tap the blank card on the reader first' });
+      }
+      const dup = await client.query('SELECT 1 FROM cards WHERE rfid_uid = $1', [uid]);
+      if (dup.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ message: 'This RFID card is already assigned to another ID' });
+      }
+    }
+
     await client.query(
       'UPDATE applications SET status = $1, remarks = COALESCE($2, remarks), updated_at = NOW() WHERE id = $3',
       [status, cleanRemarks, appId]
@@ -432,53 +447,76 @@ router.patch('/:id/status', requireRole('admin', 'validator'), async (req, res) 
       VALUES ($1, 'application_status_changed', 'application', $2, $3)`,
     [req.user.id, appId, JSON.stringify({ from: oldStatus, to: status, remarks: cleanRemarks })]);
 
-    // auto-create card when released
+    // release = handover = card goes live
     if (status === 'released') {
       const existing = await client.query('SELECT id FROM cards WHERE application_id = $1', [appId]);
       if (!existing.rows.length) {
         const app = appRes.rows[0];
         const sp = await client.query('SELECT student_number FROM student_profiles WHERE id = $1', [app.student_id]);
         const studentCode = sp.rows[0]?.student_number?.replace('-', '') || 'CRD';
-        const issueDate = new Date().toISOString().split('T')[0];
         const validUntil = new Date();
-        validUntil.setMonth(validUntil.getMonth() + 5);
+        validUntil.setMonth(validUntil.getMonth() + 5); // clock starts today, at handover
 
+        // 1. retire old card(s)
+        let oldIds = [];
         if (app.type === 'Replacement') {
-          const rrRes = await client.query(
-            'SELECT original_card_id, reason FROM reissuance_requests WHERE application_id = $1 FOR UPDATE',
-            [appId]
-          );
-          const oldCard = rrRes.rows[0];
-          if (oldCard?.original_card_id) {
-            const oldStatus = /lost|stolen/i.test(oldCard.reason) ? 'lost' : 'damaged';
-            await client.query('UPDATE cards SET status = $1 WHERE id = $2', [oldStatus, oldCard.original_card_id]);
+          const rr = await client.query(
+            'SELECT original_card_id, reason FROM reissuance_requests WHERE application_id = $1 FOR UPDATE', [appId]);
+          const origId = rr.rows[0]?.original_card_id;
+          if (origId) {
+            const physical = /lost|stolen/i.test(rr.rows[0].reason) ? 'lost' : 'damaged';
+            await client.query('UPDATE cards SET status = $1 WHERE id = $2', [physical, origId]);
+            oldIds = [origId];
           }
         } else if (app.type === 'Renewal') {
-          const rrRes = await client.query(
-            'SELECT original_card_id FROM reissuance_requests WHERE application_id = $1',
-            [appId]
-          );
-          if (rrRes.rows.length && rrRes.rows[0].original_card_id) {
-            await client.query("UPDATE cards SET status = 'expired' WHERE id = $1", [rrRes.rows[0].original_card_id]);
-          } else {
+          const rr = await client.query(
+            'SELECT original_card_id, reason FROM reissuance_requests WHERE application_id = $1 FOR UPDATE', [appId]);
+          const origId = rr.rows[0]?.original_card_id;
+          const r = origId
+            ? await client.query("UPDATE cards SET status = 'expired' WHERE id = $1 RETURNING id", [origId])
+            : await client.query("UPDATE cards SET status = 'expired' WHERE student_id = $1 AND status = 'active' RETURNING id", [app.student_id]);
+          oldIds = r.rows.map(x => x.id);
+        }
+        if (oldIds.length) {
+          await client.query("UPDATE cards SET access_status = 'revoked' WHERE id = ANY($1::int[])", [oldIds]);
+          await client.query('UPDATE card_permissions SET is_active = FALSE WHERE card_id = ANY($1::int[])', [oldIds]);
+          for (const id of oldIds) {
             await client.query(
-              "UPDATE cards SET status = 'expired' WHERE student_id = $1 AND status = 'active'",
-              [app.student_id]
-            );
+              `INSERT INTO card_status_history (card_id, from_access_status, to_access_status, changed_by, reason)
+               VALUES ($1, NULL, 'revoked', $2, 'Superseded by new card')`, [id, req.user.id]);
           }
         }
 
-        await client.query(
-          `INSERT INTO cards (student_id, application_id, card_number, credential_ref, status, access_status, issue_date, valid_until)
-           VALUES ($1, $2, $3, $4, 'active', 'unregistered', $5, $6)`,
+        // 2. make new card, already active
+        const cardNumber = `WMSU-${new Date().getFullYear()}-${studentCode}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+        const credentialRef = `CRD-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
+        const card = await client.query(
+          `INSERT INTO cards (student_id, application_id, card_number, credential_ref, rfid_uid,
+                              status, access_status, access_activated_at, issue_date, valid_until)
+           VALUES ($1, $2, $3, $4, $5, 'active', 'active', NOW(), CURRENT_DATE, $6) RETURNING id`,
           [
             app.student_id,
             appId,
-            `WMSU-${new Date().getFullYear()}-${studentCode}-${Math.floor(100 + Math.random() * 900)}`,
-            `CRD-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
-            issueDate,
+            cardNumber,
+            credentialRef,
+            uid,
             validUntil.toISOString().split('T')[0],
           ]
+        );
+        const cardId = card.rows[0].id;
+
+        // 3. default door: Main Gate
+        await client.query(
+          `INSERT INTO card_permissions (card_id, facility_id, valid_until, granted_by)
+           SELECT $1, id, $2, $3 FROM facilities WHERE code = 'GATE-MAIN'`,
+          [cardId, validUntil.toISOString().split('T')[0], req.user.id]
+        );
+
+        // 4. log it
+        await client.query(
+          `INSERT INTO card_status_history (card_id, from_status, to_status, from_access_status, to_access_status, changed_by, reason)
+           VALUES ($1, NULL, 'active', NULL, 'active', $2, 'Released and activated at handover')`,
+          [cardId, req.user.id]
         );
       }
     }

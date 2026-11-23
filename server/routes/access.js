@@ -10,20 +10,18 @@ function today() {
 
 // POST /api/access/check — simulated card scan used for the prototype.
 router.post('/check', requireRole('admin', 'validator'), async (req, res) => {
-  const credentialRef = typeof req.body.credential_ref === 'string' ? req.body.credential_ref.trim().toUpperCase() : '';
+  const rfidUid = typeof req.body.rfid_uid === 'string' ? req.body.rfid_uid.trim().toUpperCase() : '';
   const facilityCode = typeof req.body.facility_code === 'string' ? req.body.facility_code.trim().toUpperCase() : '';
   const facilityId = Number(req.body.facility_id);
 
-  if (!credentialRef || (!facilityCode && !Number.isInteger(facilityId))) {
-    return res.status(400).json({ message: 'A credential reference and a facility are required' });
+  if (!rfidUid || (!facilityCode && !Number.isInteger(facilityId))) {
+    return res.status(400).json({ message: 'A card tap and a facility are required' });
   }
 
   try {
-    const cardResult = credentialRef
-      ? await pool.query(`SELECT c.*, sp.first_name, sp.last_name, sp.student_number
-          FROM cards c JOIN student_profiles sp ON sp.id = c.student_id
-          WHERE UPPER(c.credential_ref) = $1`, [credentialRef])
-      : { rows: [] };
+    const cardResult = await pool.query(`SELECT c.*, sp.first_name, sp.last_name, sp.student_number
+      FROM cards c JOIN student_profiles sp ON sp.id = c.student_id
+      WHERE c.rfid_uid = $1`, [rfidUid]);
 
     const card = cardResult.rows[0];
     const facilityResult = facilityCode
@@ -34,7 +32,7 @@ router.post('/check', requireRole('admin', 'validator'), async (req, res) => {
     let result = 'denied';
     let reason = '';
     if (!card) {
-      reason = 'Credential is not registered';
+      reason = 'Card is not registered';
     } else if (!facility) {
       reason = 'Facility is not registered';
     } else if (!facility.is_active) {
@@ -60,7 +58,7 @@ router.post('/check', requireRole('admin', 'validator'), async (req, res) => {
       INSERT INTO access_attempts
         (card_id, facility_id, credential_ref, facility_code, result, reason, scanned_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [card?.id || null, facility?.id || null, credentialRef || card?.credential_ref || null,
+      [card?.id || null, facility?.id || null, card?.credential_ref || rfidUid,
         facilityCode || facility?.code || null, result, reason || null, req.user.id]);
 
     res.json({

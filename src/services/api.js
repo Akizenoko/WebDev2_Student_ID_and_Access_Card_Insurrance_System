@@ -126,11 +126,11 @@ export const api = {
     return result;
   },
 
-  updateApplicationStatus: async (id, status, remarks) => {
+  updateApplicationStatus: async (id, status, remarks, rfid_uid) => {
     const res = await fetch(`${API_BASE}/applications/${id}/status`, {
       method: 'PATCH',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ status, remarks }),
+      body: JSON.stringify({ status, remarks, rfid_uid }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

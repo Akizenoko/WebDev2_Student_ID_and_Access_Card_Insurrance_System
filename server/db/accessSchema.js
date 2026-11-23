@@ -11,6 +11,7 @@ export async function ensureAccessSchema(pool) {
     `ALTER TABLE applications ADD CONSTRAINT applications_status_check CHECK (status IN (
        'submitted', 'processing', 'ready', 'released', 'rejected', 'needs_correction'))`,
     `ALTER TABLE cards ADD COLUMN IF NOT EXISTS credential_ref VARCHAR(40) UNIQUE`,
+    `ALTER TABLE cards ADD COLUMN IF NOT EXISTS rfid_uid VARCHAR(40) UNIQUE`,
     `UPDATE cards SET credential_ref = 'CRD-' || UPPER(SUBSTRING(MD5(RANDOM()::text || id::text) FROM 1 FOR 12)) WHERE credential_ref IS NULL`,
     `ALTER TABLE cards DROP CONSTRAINT IF EXISTS cards_status_check`,
     `ALTER TABLE cards ADD CONSTRAINT cards_status_check CHECK (status IN (

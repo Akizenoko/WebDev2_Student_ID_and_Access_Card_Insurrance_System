@@ -75,6 +75,7 @@ ALTER TABLE cards ADD COLUMN IF NOT EXISTS access_status VARCHAR(15) NOT NULL DE
 ALTER TABLE cards ADD COLUMN IF NOT EXISTS access_activated_at TIMESTAMPTZ;
 ALTER TABLE cards ADD COLUMN IF NOT EXISTS validated_semester VARCHAR(30);
 ALTER TABLE cards ADD COLUMN IF NOT EXISTS validated_at TIMESTAMPTZ;
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS rfid_uid VARCHAR(40) UNIQUE;
 UPDATE cards
   SET valid_until = (COALESCE(validated_at::date, issue_date) + INTERVAL '5 months')::date
   WHERE valid_until > (COALESCE(validated_at::date, issue_date) + INTERVAL '5 months')::date;

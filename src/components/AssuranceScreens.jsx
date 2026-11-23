@@ -108,7 +108,7 @@ export function Facilities({ staff, cards }) {
 export function AccessControl({ staff, cards, onRefresh }) {
   const [facilities, setFacilities] = useState([]);
   const [attempts, setAttempts] = useState([]);
-  const [scan, setScan] = useState({ credential_ref: '', facility_code: '' });
+  const [scan, setScan] = useState({ rfid_uid: '', facility_code: '' });
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -128,7 +128,7 @@ export function AccessControl({ staff, cards, onRefresh }) {
   useEffect(() => { const t = setTimeout(load, 0); return () => clearTimeout(t); }, [staff, load]);
   const runScan = async event => {
     event.preventDefault(); setError(''); setNotice(''); setResult(null);
-    try { const outcome = await api.checkAccess(scan); setResult(outcome); await load(); }
+    const payload = scan; setScan(s => ({ ...s, rfid_uid: '' })); try { const outcome = await api.checkAccess(payload); setResult(outcome); await load(); }
     catch (err) { setError(err.message); }
   };
   const saveAccessStatus = async event => {
@@ -177,9 +177,9 @@ export function AccessControl({ staff, cards, onRefresh }) {
       </form>
     </div>}
     {staff && <form className="surface module-form scan-form" onSubmit={runScan}>
-      <h3>Simulated card scan</h3>
+      <h3>Simulated card scan</h3><p className="muted">The reader types the UID and submits when it sends Enter.</p>
       <div className="split-fields">
-        <label className="input-group"><span>Credential reference</span><input value={scan.credential_ref} onChange={e => setScan(s => ({ ...s, credential_ref: e.target.value }))} placeholder="CRD-XXXXXXXX" required /></label>
+        <label className="input-group"><span>Tap card</span><input autoFocus value={scan.rfid_uid} onChange={e => setScan(s => ({ ...s, rfid_uid: e.target.value }))} placeholder="Tap card on reader" required /></label>
         <label className="input-group"><span>Facility</span><select value={scan.facility_code} onChange={e => setScan(s => ({ ...s, facility_code: e.target.value }))} required><option value="">Select facility</option>{facilities.filter(f => f.is_active).map(f => <option key={f.id} value={f.code}>{f.name} ({f.code})</option>)}</select></label>
       </div>
       <button className="button button-primary">Run access check</button>

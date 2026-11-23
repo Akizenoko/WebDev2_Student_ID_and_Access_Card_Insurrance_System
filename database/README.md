@@ -48,33 +48,24 @@ Create a database named `student_id_db`, open the Query Tool on it, open `databa
 
 ## Running the App
 
-Start the backend server:
+Start both backend and React development servers:
 ```bash
-node server/index.js
+npm run dev
 ```
 
-then start the server for react 
-"npm run dev"
+For separate terminals, use `npm run server` and `npm run client`.
 
+## OTP email setup
 
+Set `EMAIL_USER` and `EMAIL_APP_PASSWORD` in the project-root `.env`. Use a Gmail app password. Never store real credentials in this file or commit them.
 
-FOR OTP 
-
-install 
-npm install nodemailer
-
-add this to your server .env
-EMAIL_USER=wmsuid@gmail.com
-EMAIL_APP_PASSWORD=hoisfpdzihpccrbl
-
-also run this again for the db 
-psql -U postgres -d student_id_db -f database/schema.sql
+Apply the current schema only when creating a fresh database; use `database/migrate.sql` or restart the server for an existing database.
 
 ---
 
 ## ID issuance & activation — process review and team notes (added 2026-11-22)
 
-> This section was **appended** for the shared repository. Everything above is the original database setup/OTP documentation and is kept unchanged. Where the steps below differ from the older notes above, **use the steps in this section**.
+> This section records the current issuance and activation process. Where steps below differ from earlier setup notes, use the current steps.
 
 ### A. Core rule: the ID *is* the activation card
 
@@ -150,7 +141,7 @@ Run these from the project root. They supersede the older steps above where they
    ```
    For an **existing** local database use `psql -U postgres -d student_id_db -f database/migrate.sql` instead. The server also applies idempotent upgrades at startup, so restarting the backend after pulling is required.
 3. Install packages: `npm install`.
-4. Create your own `.env` in the project root. Needed keys: `DATABASE_URL`, `JWT_SECRET`, `EMAIL_USER`, `EMAIL_APP_PASSWORD` (see `server/db/pool.js` and `server/mailer.js`). There is currently **no `.env.example`** despite the older step 3 above referring to one — create your own and **never commit it**.
+ 4. Copy `.env.example` to `.env`; set `DATABASE_URL`, `JWT_SECRET`, `EMAIL_USER`, and `EMAIL_APP_PASSWORD`. Never commit `.env`.
 5. Optional demo data (skips itself if `users` is not empty): `node server/db/seed.js`. Demo logins: `student@wmsu.edu.ph` / `password123`, `admin@wmsu.edu.ph` / `admin123`.
 6. Run: `npm run dev` (starts Express on `:5000` and Vite on `:5173`; `/api` is proxied to the backend). `npm run server` / `npm run client` run them separately.
 7. Verify: `GET /api/health` should return `{"status":"ok"}`.
@@ -221,3 +212,14 @@ Run these from the project root. They supersede the older steps above where they
 ### K. API quick map
 
 `/api/auth` (register, login, OTP), `/api/applications` (CRUD, `:id/status`, `:id/photo`, `:id/assign`), `/api/cards` (list/detail, `:id/access-request`, `:id/access-status`, `:id/status`, `credential/:ref`, `:id/history`, `:id/validate-semester`), `/api/facilities` (facilities + `:id/permissions`), `/api/access` (`/check`, `/attempts`), `/api/reissuance` (`:id/verify`), `/api/revalidation` (`:id/review`), `/api/reports`, `/api/notifications`, `/api/files`. See `src/services/api.js` for the frontend wrappers.
+
+
+nov/23/2026 - dolf
+feat: add RFID card handover and access scanning
+
+- Require RFID UID at release; activate card and grant Main Gate access.
+- Revoke old card access on replacement or renewal; log card history.
+- Generate card IDs with crypto and scan by RFID UID.
+- Add UPRESS photo reminders and reader support.
+- Send OTP email in development; log fallback code if SMTP fails.
+- Add blank .env.example and update setup instructions.

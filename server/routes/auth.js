@@ -21,8 +21,13 @@ async function startOtp(userId, email) {
      VALUES ($1, $2, NOW() + INTERVAL '5 minutes')`,
     [userId, await bcrypt.hash(code, 10)]
   );
-  if (process.env.NODE_ENV !== 'production') console.log(`[DEV] OTP for ${email}: ${code}`);
-  await sendOtpEmail(email, code);
+  try {
+    await sendOtpEmail(email, code);
+  } catch (err) {
+    if (process.env.NODE_ENV === 'production') throw err;
+    console.error('OTP email delivery failed in development:', err.message);
+    console.log(`[DEV] OTP for ${email}: ${code}`);
+  }
   return {
     otpRequired: true,
     challenge: jwt.sign({ uid: userId, purpose: 'otp' }, otpSecret(), { expiresIn: '10m' }),
